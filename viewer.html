@@ -29,6 +29,7 @@
     border-bottom: 1px solid rgba(255,255,255,0.12); margin-bottom: 12px; }
   .side-logo { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 8px; background: var(--gold);
     color: var(--navy-dark); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; }
+  .side-logo-img { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 8px; background: #fff; object-fit: contain; padding: 3px; }
   .sb-title { font-size: 14px; font-weight: 700; letter-spacing: .3px; }
   .sb-sub { font-size: 11.5px; color: #C9D6F0; }
   .side-section { font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px;
@@ -202,7 +203,7 @@
 <!-- ================= LOGIN ================= -->
 <div id="loginScreen" class="login-wrap">
   <div class="login-card">
-    <div class="login-brand"><span class="side-logo">▲</span><span class="t">Akara Org Chart</span></div>
+    <div class="login-brand"><img src="logo.jpg" class="side-logo-img" alt="Akara"><span class="t">Akara Org Chart</span></div>
     <label for="loginEmail">อีเมล</label>
     <input type="email" id="loginEmail" placeholder="you@akararesources.com">
     <label for="loginPassword">รหัสผ่าน</label>
@@ -217,7 +218,7 @@
 <div id="appScreen">
   <aside class="sidebar">
     <div class="side-brand">
-      <span class="side-logo">▲</span>
+      <img src="logo.jpg" class="side-logo-img" alt="Akara">
       <div><div class="sb-title">AKARA RESOURCES</div><div class="sb-sub">Organization Chart</div></div>
     </div>
     <div class="side-section">แผนผังองค์กร</div>
@@ -320,6 +321,17 @@ async function doLogin() {
   await enterApp();
 }
 async function enterApp() {
+  // จำกัดสิทธิ์: เข้าได้เฉพาะผู้ที่อยู่ในตาราง hr_admins (กลุ่มที่กำหนด)
+  const { data: isAllowed, error } = await sb.rpc('is_hr_admin');
+  if (error || !isAllowed) {
+    const e = document.getElementById('loginErr');
+    e.textContent = 'บัญชีนี้ยังไม่มีสิทธิ์เข้าใช้ระบบ Org Chart — ติดต่อผู้ดูแลระบบ';
+    e.style.display = 'block';
+    document.getElementById('appScreen').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    await sb.auth.signOut();
+    return;
+  }
   const { data: { user } } = await sb.auth.getUser();
   document.getElementById('whoEmail').textContent = user.email;
   document.getElementById('loginScreen').style.display = 'none';
