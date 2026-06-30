@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Akara Org Chart — HR Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --navy: #1B4BA8;
+    --navy-dark: #123372;
+    --gold: #F5B731;
+    --gold-dark: #C99419;
+    --bg: #F5F6F8;
+    --surface: #FFFFFF;
+    --border: #E2E5EA;
+    --text: #1A1D29;
+    --text-muted: #6B7280;
+    --success-bg: #E6F4EA;
+    --success-text: #1E7A34;
+    --danger-bg: #FCE8E8;
+    --danger-text: #B42318;
+    --warning-bg: #FFF4DE;
+    --warning-text: #92600A;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--navy); }
+
+  /* ---------- Header ---------- */
+  header.topbar {
+    background: var(--navy);
+    color: white;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .brand { display: flex; align-items: baseline; gap: 8px; }
+  .brand .mark {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--gold); display: inline-block;
+  }
+  .brand h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: 0.2px; }
+  .brand span.sub { font-size: 12px; color: #C9D6F0; font-weight: 400; }
+  .who { font-size: 13px; color: #C9D6F0; display: flex; align-items: center; gap: 12px; }
+  .who button {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: white; padding: 6px 12px; border-radius: 8px;
+    font-size: 13px; cursor: pointer;
+  }
+  .who button:hover { background: rgba(255,255,255,0.22); }
+
+  /* ---------- Tabs ---------- */
+  nav.tabs {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    overflow-x: auto;
+    padding: 0 12px;
+  }
+  nav.tabs button {
+    background: none; border: none; cursor: pointer;
+    padding: 14px 16px; font-size: 14px; font-weight: 500;
+    color: var(--text-muted); white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  nav.tabs button:hover { color: var(--navy); }
+  nav.tabs button.active { color: var(--navy); border-bottom-color: var(--gold); }
+  nav.tabs button:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--navy); outline-offset: 2px;
+  }
+
+  main { max-width: 980px; margin: 0 auto; padding: 24px 20px 60px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 18px;
+  }
+  .card h2 { font-size: 16px; margin: 0 0 4px; font-weight: 600; }
+  .card p.hint { font-size: 13px; color: var(--text-muted); margin: 0 0 16px; }
+
+  label { display: block; font-size: 13px; font-weight: 500; margin: 14px 0 6px; }
+  label:first-of-type { margin-top: 0; }
+  input[type=text], input[type=email], input[type=password], select {
+    width: 100%; padding: 9px 11px; font-size: 14px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: white; color: var(--text); font-family: inherit;
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 640px) { .row2 { grid-template-columns: 1fr; } }
+
+  button.primary {
+    background: var(--navy); color: white; border: none;
+    padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 500;
+    cursor: pointer; margin-top: 18px;
+  }
+  button.primary:hover { background: var(--navy-dark); }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.danger { background: var(--danger-text); }
+  button.danger:hover { background: #8e1c12; }
+  button.secondary {
+    background: white; border: 1px solid var(--border); color: var(--text);
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer;
+  }
+
+  /* ---------- Autocomplete ---------- */
+  .ac-wrap { position: relative; }
+  .ac-results {
+    position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px);
+    background: white; border: 1px solid var(--border); border-radius: 8px;
+    max-height: 260px; overflow-y: auto;
+    box-shadow: 0 6px 20px rgba(20,30,60,0.12);
+  }
+  .ac-results .item { padding: 9px 12px; cursor: pointer; font-size: 13.5px; }
+  .ac-results .item:hover, .ac-results .item.kbd { background: #F0F3FB; }
+  .ac-results .item .t { font-weight: 500; }
+  .ac-results .item .s { color: var(--text-muted); font-size: 12px; }
+  .ac-results .empty { padding: 10px 12px; color: var(--text-muted); font-size: 13px; }
+  .selected-chip {
+    margin-top: 8px; display: inline-flex; align-items: center; gap: 8px;
+    background: #F0F3FB; border: 1px solid #D7E0F5; border-radius: 999px;
+    padding: 6px 8px 6px 12px; font-size: 13px;
+  }
+  .selected-chip button {
+    background: none; border: none; cursor: pointer; color: var(--text-muted);
+    font-size: 15px; line-height: 1; padding: 2px 4px;
+  }
+
+  /* ---------- Reporting chain preview (signature element) ---------- */
+  .chain {
+    margin-top: 12px; padding: 12px 14px; background: #FBFAF6;
+    border: 1px dashed var(--gold-dark); border-radius: 8px;
+    font-size: 13px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .chain .node { display: inline-flex; align-items: center; gap: 6px; }
+  .chain .node .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold-dark); }
+  .chain .arrow { color: var(--text-muted); }
+  .chain .new-node { font-weight: 600; color: var(--navy); }
+
+  /* ---------- Table ---------- */
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; padding: 9px 10px; color: var(--text-muted); font-weight: 500; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+  td { padding: 9px 10px; border-bottom: 1px solid #EEF0F3; }
+  tr:hover td { background: #FAFBFC; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+  .badge.filled { background: var(--success-bg); color: var(--success-text); }
+  .badge.vacant { background: var(--danger-bg); color: var(--danger-text); }
+  .badge.pending, .badge.filled_pending_name { background: var(--warning-bg); color: var(--warning-text); }
+  .badge.unknown { background: #EEE; color: var(--text-muted); }
+  .table-scroll { max-height: 560px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .filters select, .filters input { width: auto; min-width: 160px; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: white; padding: 12px 20px; border-radius: 8px;
+    font-size: 14px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  }
+  .toast.error { background: var(--danger-text); }
+
+  /* ---------- Login ---------- */
+  .login-wrap {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .login-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 36px 32px; width: 100%; max-width: 380px;
+  }
+  .login-card .brand { color: var(--navy); margin-bottom: 22px; justify-content: center; }
+  .login-card .brand h1 { color: var(--navy); }
+  .login-card p.err { color: var(--danger-text); font-size: 13px; margin-top: 10px; }
+  .login-card p.note { color: var(--text-muted); font-size: 12.5px; margin-top: 18px; text-align: center; }
+
+  .empty-state { text-align: center; color: var(--text-muted); padding: 40px 20px; font-size: 14px; }
+  .small-muted { color: var(--text-muted); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <div class="brand"><span class="mark"></span><h1>Akara Org Chart</h1></div>
+    <label for="loginEmail">อีเมล</label>
+    <input type="email" id="loginEmail" placeholder="you@akararesources.com">
+    <label for="loginPassword">รหัสผ่าน</label>
+    <input type="password" id="loginPassword">
+    <button class="primary" style="width:100%" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <p class="err" id="loginErr" style="display:none"></p>
+    <p class="note">เฉพาะ HR Admin ที่มีสิทธิ์เท่านั้น — ติดต่อผู้ดูแลระบบหากเข้าไม่ได้</p>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appScreen" style="display:none">
+  <header class="topbar">
+    <div class="brand"><span class="mark"></span><h1>Akara Org Chart<span class="sub">&nbsp;&nbsp;HR Admin</span></h1></div>
+    <div class="who"><span id="whoEmail"></span><button onclick="doLogout()">ออกจากระบบ</button></div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="browse">ภาพรวมตำแหน่ง</button>
+    <button class="tab-btn" data-tab="add">เพิ่มตำแหน่งใหม่</button>
+    <button class="tab-btn" data-tab="assign">ย้าย / มอบหมายคน</button>
+    <button class="tab-btn" data-tab="deactivate">ปิดใช้งานตำแหน่ง</button>
+  </nav>
+
+  <main>
+
+    <!-- ---------- BROWSE ---------- -->
+    <section class="panel active" id="panel-browse">
+      <div class="card">
+        <h2>ตำแหน่งทั้งหมด</h2>
+        <p class="hint">ข้อมูลสด ดึงตรงจากฐานข้อมูล — ค้นหาหรือกรองได้ด้านล่าง</p>
+        <div class="filters">
+          <input type="text" id="browseSearch" placeholder="ค้นหาชื่อตำแหน่ง/ชื่อคน...">
+          <select id="browseDivision"><option value="">ทุก Division</option></select>
+          <select id="browseStatus">
+            <option value="">ทุกสถานะ</option>
+            <option value="filled">Filled</option>
+            <option value="vacant">Vacant</option>
+            <option value="filled_pending_name">Pending</option>
+            <option value="unknown">Unknown</option>
+          </select>
+          <button class="secondary" onclick="loadBrowseData()">รีเฟรช</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Division</th><th>Department</th><th>Grade</th><th>ตำแหน่ง</th>
+              <th>ผู้ดำรงตำแหน่ง</th><th>สถานะ</th><th>รายงานต่อ</th>
+            </tr></thead>
+            <tbody id="browseRows"></tbody>
+          </table>
+        </div>
+        <p class="small-muted" id="browseCount" style="margin-top:10px"></p>
+      </div>
+    </section>
+
+    <!-- ---------- ADD POSITION ---------- -->
+    <section class="panel" id="panel-add">
+      <div class="card">
+        <h2>เพิ่มตำแหน่งใหม่</h2>
+        <p class="hint">สร้างตำแหน่ง (seat) ใหม่ในโครงสร้างองค์กร</p>
+
+        <div class="row2">
+          <div>
+            <label for="addDivision">Division</label>
+            <select id="addDivision" onchange="onAddDivisionChange()"><option value="">เลือก Division</option></select>
+          </div>
+          <div>
+            <label for="addDepartment">Department</label>
+            <select id="addDepartment"><option value="">เลือก Division ก่อน</option></select>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label for="addTitle">ชื่อตำแหน่ง</label>
+            <input type="text" id="addTitle" placeholder="เช่น Senior Accounting Officer">
+          </div>
+          <div>
+            <label for="addGrade">Grade</label>
+            <select id="addGrade">
+              <option value="">— ไม่ระบุ —</option>
+              <option>CEO</option><option>M4</option><option>M3</option><option>M2</option>
+              <option>M1 Senior</option><option>M1</option><option>S3</option><option>S2</option>
+              <option>S1</option><option>O3</option><option>O2</option><option>O1</option>
+            </select>
+          </div>
+        </div>
+
+        <label>รายงานต่อ (Reports To)</label>
+        <div class="ac-wrap">
+          <input type="text" id="addReportsToSearch" placeholder="ค้นหาตำแหน่ง/ชื่อผู้บังคับบัญชา...">
+          <div class="ac-results" id="addReportsToResults" style="display:none"></div>
+        </div>
+        <div id="addReportsToChip"></div>
+        <div class="chain" id="addChainPreview" style="display:none"></div>
+
+        <label>สถานะตำแหน่งใหม่</label>
+        <select id="addInitialStatus" onchange="onAddStatusChange()">
+          <option value="vacant">ว่าง (Vacant)</option>
+          <option value="filled">มอบหมายคนทันที (Filled)</option>
+        </select>
+
+        <div id="addEmployeeBlock" style="display:none">
+          <label>ผู้ดำรงตำแหน่ง</label>
+          <div class="ac-wrap">
+            <input type="text" id="addEmployeeSearch" placeholder="ค้นหาชื่อพนักงาน หรือพิมพ์ชื่อใหม่...">
+            <div class="ac-results" id="addEmployeeResults" style="display:none"></div>
+          </div>
+          <div id="addEmployeeChip"></div>
+        </div>
+
+        <button class="primary" onclick="submitAddPosition()" id="addSubmitBtn">บันทึกตำแหน่งใหม่</button>
+      </div>
+    </section>
+
+    <!-- ---------- ASSIGN / MOVE ---------- -->
+    <section class="panel" id="panel-assign">
+      <div class="card">
+        <h2>ย้าย / มอบหมายคนเข้าตำแหน่ง</h2>
+        <p class="hint">เลือกตำแหน่งที่ต้องการแก้ไข ระบบจะปิดประวัติเดิมและบันทึกการเปลี่ยนแปลงใหม่อัตโนมัติ</p>
+
+        <label>ตำแหน่งที่จะแก้ไข</label>
+        <div class="ac-wrap">
+          <input type="text" id="assignPositionSearch" placeholder="ค้นหาชื่อตำแหน่ง/ชื่อผู้ดำรงตำแหน่งปัจจุบัน...">
+          <div class="ac-results" id="assignPositionResults" style="display:none"></div>
+        </div>
+        <div id="assignPositionChip"></div>
+        <div class="chain" id="assignChainPreview" style="display:none"></div>
+
+        <div id="assignFormBlock" style="display:none">
+          <label>สถานะใหม่</label>
+          <select id="assignNewStatus" onchange="onAssignStatusChange()">
+            <option value="filled">มอบหมายคน (Filled)</option>
+            <option value="vacant">ว่าง (Vacant)</option>
+            <option value="filled_pending_name">ว่าง — รอชื่อผู้สมัคร (Pending)</option>
+          </select>
+
+          <div id="assignEmployeeBlock">
+            <label>ผู้ดำรงตำแหน่งคนใหม่</label>
+            <div class="ac-wrap">
+              <input type="text" id="assignEmployeeSearch" placeholder="ค้นหาชื่อพนักงาน หรือพิมพ์ชื่อใหม่...">
+              <div class="ac-results" id="assignEmployeeResults" style="display:none"></div>
+            </div>
+            <div id="assignEmployeeChip"></div>
+          </div>
+
+          <div id="assignActingBlock">
+            <label>ผู้รักษาการ (ถ้ามี — ใส่เมื่อตำแหน่งว่างแต่มีคนรักษาการ)</label>
+            <div class="ac-wrap">
+              <input type="text" id="assignActingSearch" placeholder="ค้นหาชื่อพนักงาน...">
+              <div class="ac-results" id="assignActingResults" style="display:none"></div>
+            </div>
+            <div id="assignActingChip"></div>
+          </div>
+
+          <button class="primary" onclick="submitAssign()">บันทึกการเปลี่ยนแปลง</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- DEACTIVATE ---------- -->
+    <section class="panel" id="panel-deactivate">
+      <div class="card">
+        <h2>ปิดใช้งานตำแหน่ง</h2>
+        <p class="hint">ใช้เมื่อยกเลิกตำแหน่งถาวร (ไม่ใช่แค่ว่างชั่วคราว) — ข้อมูลประวัติจะยังเก็บไว้ ไม่ถูกลบ</p>
+
+        <label>ตำแหน่งที่จะปิดใช้งาน</label>
+        <div class="ac-wrap">
+          <input type="text" id="deactivatePositionSearch" placeholder="ค้นหาชื่อตำแหน่ง/ชื่อผู้ดำรงตำแหน่ง...">
+          <div class="ac-results" id="deactivatePositionResults" style="display:none"></div>
+        </div>
+        <div id="deactivatePositionChip"></div>
+
+        <button class="primary danger" id="deactivateBtn" style="display:none" onclick="submitDeactivate()">ยืนยันปิดใช้งานตำแหน่งนี้</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// =====================================================================
+// CONFIG — แก้ 2 ค่านี้ให้ตรงกับ Supabase project ของจริงก่อนใช้งาน
+// =====================================================================
+const SUPABASE_URL = 'https://allwoertbjgyfqnqgetu.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsbHdvZXJ0YmpneWZxbnFnZXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4OTc4NzgsImV4cCI6MjA5NzQ3Mzg3OH0.kpzH27gZyBeBE7K132wYdlDVjZhCN2uNBTa8XWrUOBc';
+
+// ตารางทั้งหมดอยู่ใน schema `orgchart` (ไม่ใช่ public) — ต้องระบุตรงนี้
+// และต้องไปเพิ่ม `orgchart` ใน Dashboard > Settings > API > Exposed schemas ด้วย
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  db: { schema: 'orgchart' },
+});
+
+let selected = { addReportsTo: null, addEmployee: null, assignPosition: null, assignEmployee: null, assignActing: null, deactivatePosition: null };
+let allDivisions = [];
+let allDepartments = [];
+let browseCache = [];
+
+// ---------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.style.display = 'none';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) { errEl.textContent = 'เข้าสู่ระบบไม่สำเร็จ: ' + error.message; errEl.style.display = 'block'; return; }
+  await checkAdminAndEnter();
+}
+
+async function checkAdminAndEnter() {
+  const { data: isAdmin, error } = await sb.rpc('is_hr_admin');
+  if (error || !isAdmin) {
+    document.getElementById('loginErr').textContent = 'บัญชีนี้ยังไม่มีสิทธิ์ HR Admin — ติดต่อผู้ดูแลระบบ';
+    document.getElementById('loginErr').style.display = 'block';
+    await sb.auth.signOut();
+    return;
+  }
+  const { data: { user } } = await sb.auth.getUser();
+  document.getElementById('whoEmail').textContent = user.email;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  await bootstrapData();
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+}
+
+(async function initSession() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) await checkAdminAndEnter();
+})();
+
+// ---------------------------------------------------------------
+// Tabs
+// ---------------------------------------------------------------
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ---------------------------------------------------------------
+// Bootstrap reference data
+// ---------------------------------------------------------------
+async function bootstrapData() {
+  const { data: divs } = await sb.from('divisions').select('id, name').order('name');
+  allDivisions = divs || [];
+  const { data: depts } = await sb.from('departments').select('id, name, division_id').order('name');
+  allDepartments = depts || [];
+
+  const divSelects = [document.getElementById('browseDivision'), document.getElementById('addDivision')];
+  divSelects.forEach(sel => {
+    allDivisions.forEach(d => {
+      const o = document.createElement('option'); o.value = d.id; o.textContent = d.name;
+      sel.appendChild(o);
+    });
+  });
+
+  await loadBrowseData();
+}
+
+function toast(msg, isError) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ---------------------------------------------------------------
+// Browse tab
+// ---------------------------------------------------------------
+async function loadBrowseData() {
+  const { data, error } = await sb.from('v_org_chart_current').select('*').order('division').order('department');
+  if (error) { toast('โหลดข้อมูลไม่สำเร็จ: ' + error.message, true); return; }
+  browseCache = data || [];
+  renderBrowse();
+}
+
+function renderBrowse() {
+  const q = document.getElementById('browseSearch').value.trim().toLowerCase();
+  const divFilter = document.getElementById('browseDivision').value;
+  const statusFilter = document.getElementById('browseStatus').value;
+  const rows = browseCache.filter(r => {
+    if (r.is_active === false) return false;  // ซ่อนตำแหน่งที่ปิดใช้งานแล้ว
+    if (statusFilter && r.status !== statusFilter) return false;
+    if (q && !((r.title||'').toLowerCase().includes(q) || (r.incumbent||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+  const tbody = document.getElementById('browseRows');
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${esc(r.division)}</td>
+      <td>${esc(r.department)}</td>
+      <td>${esc(r.grade||'—')}</td>
+      <td>${esc(r.title)}</td>
+      <td>${esc(r.incumbent || (r.acting_coverage ? '— (รักษาการ: '+esc(r.acting_coverage)+')' : '—'))}</td>
+      <td><span class="badge ${r.status}">${statusLabel(r.status)}</span></td>
+      <td>${esc(r.reports_to_title || 'สูงสุดในองค์กร')}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="7"><div class="empty-state">ไม่พบตำแหน่งที่ตรงกับเงื่อนไข</div></td></tr>`;
+  const activeTotal = browseCache.filter(r => r.is_active !== false).length;
+  document.getElementById('browseCount').textContent = `แสดง ${rows.length} จาก ${activeTotal} ตำแหน่ง`;
+}
+document.getElementById('browseSearch').addEventListener('input', renderBrowse);
+document.getElementById('browseDivision').addEventListener('change', renderBrowse);
+document.getElementById('browseStatus').addEventListener('change', renderBrowse);
+
+function statusLabel(s) {
+  return { filled: 'Filled', vacant: 'Vacant', filled_pending_name: 'Pending', unknown: 'Unknown' }[s] || s;
+}
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+// PostgREST .or() ใช้ comma แบ่ง filter และ ()/. เป็นไวยากรณ์ — อักขระเหล่านี้
+// ในคำค้นจะทำให้ query พัง จึงแทนด้วย % (wildcard) เพื่อให้ยังค้นหาต่อได้
+function sanitizeForOr(q) {
+  return q.replace(/[,()*]/g, '%');
+}
+
+// ---------------------------------------------------------------
+// Add Position tab
+// ---------------------------------------------------------------
+function onAddDivisionChange() {
+  const divId = document.getElementById('addDivision').value;
+  const deptSel = document.getElementById('addDepartment');
+  deptSel.innerHTML = '';
+  const filtered = allDepartments.filter(d => d.division_id === divId);
+  if (!divId || filtered.length === 0) {
+    deptSel.innerHTML = '<option value="">เลือก Division ก่อน</option>';
+    return;
+  }
+  deptSel.innerHTML = '<option value="">เลือก Department</option>' +
+    filtered.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('');
+}
+
+function onAddStatusChange() {
+  document.getElementById('addEmployeeBlock').style.display =
+    document.getElementById('addInitialStatus').value === 'filled' ? 'block' : 'none';
+}
+
+setupPositionAutocomplete('addReportsToSearch', 'addReportsToResults', 'addReportsToChip', (pos) => {
+  selected.addReportsTo = pos;
+  renderChainPreview('addChainPreview', pos, document.getElementById('addTitle').value || 'ตำแหน่งใหม่');
+});
+setupEmployeeAutocomplete('addEmployeeSearch', 'addEmployeeResults', 'addEmployeeChip', (emp) => { selected.addEmployee = emp; });
+
+async function submitAddPosition() {
+  const btn = document.getElementById('addSubmitBtn');
+  const divId = document.getElementById('addDivision').value;
+  const deptId = document.getElementById('addDepartment').value;
+  const title = document.getElementById('addTitle').value.trim();
+  const grade = document.getElementById('addGrade').value || null;
+  const status = document.getElementById('addInitialStatus').value;
+
+  if (!deptId) { toast('กรุณาเลือก Department', true); return; }
+  if (!title) { toast('กรุณาใส่ชื่อตำแหน่ง', true); return; }
+  if (status === 'filled' && !selected.addEmployee) { toast('กรุณาเลือกผู้ดำรงตำแหน่ง', true); return; }
+
+  btn.disabled = true;
+  const { data: posRows, error: posErr } = await sb.from('positions').insert({
+    department_id: deptId, title, grade,
+    reports_to_position_id: selected.addReportsTo ? selected.addReportsTo.id : null,
+  }).select().single();
+  if (posErr) { toast('สร้างตำแหน่งไม่สำเร็จ: ' + posErr.message, true); btn.disabled = false; return; }
+
+  const { error: asgErr } = await sb.from('position_assignments').insert({
+    position_id: posRows.id,
+    employee_id: status === 'filled' ? selected.addEmployee.id : null,
+    status, is_current: true,
+  });
+  btn.disabled = false;
+  if (asgErr) { toast('สร้างตำแหน่งสำเร็จ แต่บันทึกผู้ดำรงตำแหน่งไม่สำเร็จ: ' + asgErr.message, true); return; }
+
+  toast('เพิ่มตำแหน่ง "' + title + '" เรียบร้อยแล้ว');
+  document.getElementById('addTitle').value = '';
+  document.getElementById('addReportsToSearch').value = '';
+  document.getElementById('addReportsToChip').innerHTML = '';
+  document.getElementById('addChainPreview').style.display = 'none';
+  document.getElementById('addEmployeeSearch').value = '';
+  document.getElementById('addEmployeeChip').innerHTML = '';
+  selected.addReportsTo = null; selected.addEmployee = null;
+  loadBrowseData();
+}
+
+// ---------------------------------------------------------------
+// Assign / Move tab
+// ---------------------------------------------------------------
+setupPositionAutocomplete('assignPositionSearch', 'assignPositionResults', 'assignPositionChip', (pos) => {
+  selected.assignPosition = pos;
+  document.getElementById('assignFormBlock').style.display = 'block';
+  renderChainPreview('assignChainPreview', pos.reportsToObj, pos.title, true);
+  onAssignStatusChange();
+});
+setupEmployeeAutocomplete('assignEmployeeSearch', 'assignEmployeeResults', 'assignEmployeeChip', (emp) => { selected.assignEmployee = emp; });
+setupEmployeeAutocomplete('assignActingSearch', 'assignActingResults', 'assignActingChip', (emp) => { selected.assignActing = emp; });
+
+function onAssignStatusChange() {
+  const s = document.getElementById('assignNewStatus').value;
+  document.getElementById('assignEmployeeBlock').style.display = (s === 'filled') ? 'block' : 'none';
+  document.getElementById('assignActingBlock').style.display = (s === 'vacant' || s === 'filled_pending_name') ? 'block' : 'none';
+}
+
+async function submitAssign() {
+  if (!selected.assignPosition) { toast('กรุณาเลือกตำแหน่งก่อน', true); return; }
+  const status = document.getElementById('assignNewStatus').value;
+  if (status === 'filled' && !selected.assignEmployee) { toast('กรุณาเลือกผู้ดำรงตำแหน่งคนใหม่', true); return; }
+
+  const { error } = await sb.from('position_assignments').insert({
+    position_id: selected.assignPosition.id,
+    employee_id: status === 'filled' ? selected.assignEmployee.id : null,
+    acting_employee_id: (status !== 'filled' && selected.assignActing) ? selected.assignActing.id : null,
+    status, is_current: true,
+  });
+  if (error) { toast('บันทึกไม่สำเร็จ: ' + error.message, true); return; }
+
+  toast('บันทึกการเปลี่ยนแปลงสำหรับ "' + selected.assignPosition.title + '" เรียบร้อยแล้ว — ประวัติเดิมถูกเก็บไว้อัตโนมัติ');
+  document.getElementById('assignPositionSearch').value = '';
+  document.getElementById('assignPositionChip').innerHTML = '';
+  document.getElementById('assignFormBlock').style.display = 'none';
+  document.getElementById('assignChainPreview').style.display = 'none';
+  selected.assignPosition = null; selected.assignEmployee = null; selected.assignActing = null;
+  loadBrowseData();
+}
+
+// ---------------------------------------------------------------
+// Deactivate tab
+// ---------------------------------------------------------------
+setupPositionAutocomplete('deactivatePositionSearch', 'deactivatePositionResults', 'deactivatePositionChip', (pos) => {
+  selected.deactivatePosition = pos;
+  document.getElementById('deactivateBtn').style.display = 'block';
+});
+
+async function submitDeactivate() {
+  if (!selected.deactivatePosition) return;
+  if (!confirm('ยืนยันปิดใช้งานตำแหน่ง "' + selected.deactivatePosition.title + '" ใช่หรือไม่?')) return;
+  const { error } = await sb.from('positions').update({ is_active: false }).eq('id', selected.deactivatePosition.id);
+  if (error) { toast('ปิดใช้งานไม่สำเร็จ: ' + error.message, true); return; }
+  toast('ปิดใช้งานตำแหน่ง "' + selected.deactivatePosition.title + '" เรียบร้อยแล้ว');
+  document.getElementById('deactivatePositionSearch').value = '';
+  document.getElementById('deactivatePositionChip').innerHTML = '';
+  document.getElementById('deactivateBtn').style.display = 'none';
+  selected.deactivatePosition = null;
+  loadBrowseData();
+}
+
+// ---------------------------------------------------------------
+// Reusable autocomplete widgets
+// ---------------------------------------------------------------
+function setupPositionAutocomplete(inputId, resultsId, chipId, onSelect) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  let debounceTimer;
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const q = input.value.trim();
+    if (q.length < 2) { results.style.display = 'none'; return; }
+    debounceTimer = setTimeout(async () => {
+      const safe = sanitizeForOr(q);
+      const { data, error } = await sb.from('v_org_chart_current')
+        .select('position_id, title, incumbent, department, division, status, reports_to_position_id, reports_to_title, is_active')
+        .eq('is_active', true)
+        .or(`title.ilike.%${safe}%,incumbent.ilike.%${safe}%`)
+        .limit(15);
+      if (error) return;
+      results.innerHTML = (data && data.length) ? data.map(r => `
+        <div class="item" data-id="${r.position_id}">
+          <div class="t">${esc(r.title)} ${r.incumbent ? '— ' + esc(r.incumbent) : '<span class="s">(ว่าง)</span>'}</div>
+          <div class="s">${esc(r.division)} / ${esc(r.department)}</div>
+        </div>`).join('') : `<div class="empty">ไม่พบตำแหน่งที่ตรงกับคำค้นหา</div>`;
+      results.style.display = 'block';
+      results.querySelectorAll('.item').forEach((el, i) => {
+        el.addEventListener('click', () => {
+          const r = data[i];
+          input.value = '';
+          results.style.display = 'none';
+          document.getElementById(chipId).innerHTML = chipHtml(r.title + (r.incumbent ? ' — ' + r.incumbent : ' (ว่าง)'));
+          document.getElementById(chipId).querySelector('button').addEventListener('click', () => {
+            document.getElementById(chipId).innerHTML = '';
+          });
+          onSelect({ id: r.position_id, title: r.title, reportsToObj: r.reports_to_position_id ? { id: r.reports_to_position_id, title: r.reports_to_title } : null });
+        });
+      });
+    }, 250);
+  });
+  document.addEventListener('click', (e) => { if (!input.contains(e.target) && !results.contains(e.target)) results.style.display = 'none'; });
+}
+
+function setupEmployeeAutocomplete(inputId, resultsId, chipId, onSelect) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  let debounceTimer;
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const q = input.value.trim();
+    if (q.length < 2) { results.style.display = 'none'; return; }
+    debounceTimer = setTimeout(async () => {
+      const { data } = await sb.from('employees').select('id, full_name').ilike('full_name', `%${q}%`).limit(10);
+      let html = (data || []).map(e => `<div class="item" data-id="${e.id}"><div class="t">${esc(e.full_name)}</div></div>`).join('');
+      html += `<div class="item" data-new="1"><div class="t">+ เพิ่ม "${esc(q)}" เป็นพนักงานใหม่</div></div>`;
+      results.innerHTML = html;
+      results.style.display = 'block';
+      results.querySelectorAll('.item').forEach((el, i) => {
+        el.addEventListener('click', async () => {
+          let emp;
+          if (el.dataset.new) {
+            const { data: newEmp, error } = await sb.from('employees').insert({ full_name: q }).select().single();
+            if (error) { toast('เพิ่มพนักงานไม่สำเร็จ: ' + error.message, true); return; }
+            emp = newEmp;
+          } else {
+            emp = data[i];
+          }
+          input.value = '';
+          results.style.display = 'none';
+          document.getElementById(chipId).innerHTML = chipHtml(emp.full_name);
+          document.getElementById(chipId).querySelector('button').addEventListener('click', () => {
+            document.getElementById(chipId).innerHTML = '';
+          });
+          onSelect({ id: emp.id, full_name: emp.full_name });
+        });
+      });
+    }, 250);
+  });
+  document.addEventListener('click', (e) => { if (!input.contains(e.target) && !results.contains(e.target)) results.style.display = 'none'; });
+}
+
+function chipHtml(label) {
+  return `<span class="selected-chip">${esc(label)}<button type="button" aria-label="ลบ">×</button></span>`;
+}
+
+// ---------------------------------------------------------------
+// Reporting chain preview — calls the same recursive function PAR/ATS use
+// ---------------------------------------------------------------
+async function renderChainPreview(elId, parentPos, newLabel, parentIsKnownChain) {
+  const el = document.getElementById(elId);
+  if (!parentPos) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML = '<span class="small-muted">กำลังโหลดสายบังคับบัญชา...</span>';
+  const { data, error } = await sb.rpc('get_reporting_chain', { p_position_id: parentPos.id });
+  if (error || !data) { el.innerHTML = '<span class="small-muted">โหลดสายบังคับบัญชาไม่สำเร็จ</span>'; return; }
+  const chainNodes = data.map(r => `<span class="node"><span class="dot"></span>${esc(r.title)}${r.incumbent ? ' ('+esc(r.incumbent)+')' : ''}</span>`);
+  const newNode = `<span class="node new-node">${esc(newLabel)}</span>`;
+  el.innerHTML = [newNode, ...chainNodes].join('<span class="arrow">→</span>');
+}
+</script>
+</body>
+</html>
