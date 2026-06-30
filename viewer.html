@@ -169,8 +169,8 @@
   .stat.vac .v { color: var(--danger-text); }
   .stat.fill .v { color: var(--success-text); }
   .bar-row { display: grid; grid-template-columns: 220px 1fr 86px; align-items: center; gap: 10px; margin: 7px 0; font-size: 13px; }
-  .bar-track { background: #EEF0F3; border-radius: 6px; height: 18px; overflow: hidden; }
-  .bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-dark)); border-radius: 6px; }
+  .bar-track { display: block; background: #e3e8f2; border-radius: 6px; height: 18px; overflow: hidden; }
+  .bar-fill { display: block; height: 100%; min-width: 2px; background: linear-gradient(90deg, var(--gold), var(--gold-dark)); border-radius: 6px; }
   .bar-row .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bar-row .pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-muted); }
   .bar-row.high .bar-fill { background: linear-gradient(90deg, #F5917B, var(--danger-text)); }
