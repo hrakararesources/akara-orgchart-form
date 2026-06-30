@@ -107,6 +107,45 @@
   .search-results .sr-t { font-weight: 600; font-size: 13.5px; }
   .search-results .sr-s { font-size: 12px; color: var(--text-muted); }
 
+  /* ---------- View toggle (segmented) ---------- */
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg-btn { background: white; border: none; padding: 9px 14px; font-size: 13px; cursor: pointer;
+    color: var(--text-muted); border-right: 1px solid var(--border); }
+  .seg-btn:last-child { border-right: none; }
+  .seg-btn.active { background: var(--navy); color: white; }
+
+  /* ---------- Box-and-line chart (Excel style) ---------- */
+  .oc-scroll { overflow-x: auto; padding: 8px 4px 16px; }
+  .octree, .octree ul { position: relative; padding: 16px 0 0; white-space: nowrap; margin: 0 auto; text-align: center; }
+  .octree li { display: inline-block; vertical-align: top; text-align: center; list-style: none; position: relative; padding: 16px 6px 0; }
+  /* connector lines */
+  .octree li::before, .octree li::after { content: ''; position: absolute; top: 0; right: 50%;
+    border-top: 2px solid #C7CDD8; width: 50%; height: 16px; }
+  .octree li::after { right: auto; left: 50%; border-left: 2px solid #C7CDD8; }
+  .octree li:only-child::before, .octree li:only-child::after { display: none; }
+  .octree li:only-child { padding-top: 16px; }
+  .octree li:first-child::before, .octree li:last-child::after { border: 0 none; }
+  .octree li:last-child::before { border-right: 2px solid #C7CDD8; border-radius: 0 6px 0 0; }
+  .octree li:first-child::after { border-radius: 6px 0 0 0; }
+  .octree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid #C7CDD8; width: 0; height: 16px; }
+  .octree > li { padding-top: 0; }
+  .octree > li::before, .octree > li::after { display: none; }
+  .oc-box { display: inline-block; white-space: normal; vertical-align: top; border: 1px solid var(--border);
+    border-top: 3px solid var(--text-muted); border-radius: 8px; padding: 8px 11px; background: #fff;
+    min-width: 150px; max-width: 210px; cursor: pointer; text-align: center; transition: border-color .12s, box-shadow .12s; }
+  .oc-box:hover { border-color: var(--navy); box-shadow: 0 4px 14px rgba(27,75,168,0.12); }
+  .oc-box.filled { border-top-color: var(--success-text); }
+  .oc-box.vacant { border-top-color: var(--danger-text); }
+  .oc-box.filled_pending_name { border-top-color: var(--warning-text); }
+  .oc-box.unknown { border-top-color: var(--text-muted); }
+  .octree > li > .oc-box { border-color: var(--navy); border-top-width: 3px; box-shadow: 0 2px 10px rgba(27,75,168,0.10); }
+  .ocb-title { font-weight: 600; font-size: 13px; color: var(--text); }
+  .ocb-person { font-size: 12px; margin-top: 3px; color: var(--text); }
+  .ocb-person.vacant { color: var(--danger-text); font-style: italic; }
+  .ocb-meta { margin-top: 5px; display: flex; gap: 5px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  .ocb-dept { font-size: 10.5px; color: var(--text-muted); margin-top: 4px; }
+  .ocb-more { font-size: 11px; color: var(--navy); margin-top: 6px; background: #F0F3FB; border-radius: 999px; padding: 1px 7px; display: inline-block; }
+
   /* ---------- Dashboard ---------- */
   .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
@@ -177,14 +216,21 @@
         <p class="hint">คลิกการ์ดที่มี ▸ เพื่อเจาะลงดูผู้ใต้บังคับบัญชา — ใช้แถบเส้นทางด้านบนเพื่อย้อนกลับ หรือค้นหาเพื่อกระโดดไปยังตำแหน่ง/บุคคล</p>
         <div class="controls">
           <input type="text" id="treeSearch" placeholder="ค้นหาชื่อตำแหน่ง/ชื่อคน...">
+          <div class="seg">
+            <button class="seg-btn active" id="modeCards" onclick="setMode('cards')">การ์ด</button>
+            <button class="seg-btn" id="modeChart" onclick="setMode('chart')">แผนภูมิเส้น</button>
+          </div>
           <button class="secondary" onclick="setFocus(null)">▲ กลับสู่ระดับบนสุด</button>
         </div>
         <div class="search-results" id="searchResults" style="display:none"></div>
         <div id="drillView">
           <nav class="breadcrumb" id="breadcrumb"></nav>
-          <div id="focusBox"></div>
-          <div class="reports-head" id="reportsHead"></div>
-          <div class="report-grid" id="reportGrid"></div>
+          <div id="cardsView">
+            <div id="focusBox"></div>
+            <div class="reports-head" id="reportsHead"></div>
+            <div class="report-grid" id="reportGrid"></div>
+          </div>
+          <div id="chartView" style="display:none"></div>
         </div>
       </div>
     </section>
@@ -233,6 +279,8 @@ let byId = new Map();
 let roots = [];
 let headcount = [];
 let focusId = null;   // currently focused position (null = top level / list of roots)
+let viewMode = 'cards';   // 'cards' | 'chart'
+const CHART_MAX_DEPTH = 2; // how many levels below the focus the box chart draws at once
 
 // ---------------- Auth (any authenticated user) ----------------
 async function doLogin() {
@@ -335,15 +383,20 @@ function personHtml(node, cls) {
     : `<span class="${cls} vacant">— ${node.acting_coverage ? 'รักษาการ: ' + esc(node.acting_coverage) : 'ว่าง'}</span>`;
 }
 
-function renderDrill() {
-  const bc = document.getElementById('breadcrumb');
-  const fb = document.getElementById('focusBox');
-  const rh = document.getElementById('reportsHead');
-  const rg = document.getElementById('reportGrid');
+function setMode(m) {
+  viewMode = m;
+  document.getElementById('modeCards').classList.toggle('active', m === 'cards');
+  document.getElementById('modeChart').classList.toggle('active', m === 'chart');
+  document.getElementById('cardsView').style.display = m === 'cards' ? 'block' : 'none';
+  document.getElementById('chartView').style.display = m === 'chart' ? 'block' : 'none';
+  renderDrill();
+}
 
+function renderDrill() {
   const focus = focusId ? byId.get(focusId) : null;
 
-  // breadcrumb
+  // breadcrumb (shared by both views)
+  const bc = document.getElementById('breadcrumb');
   const crumbs = [`<span class="crumb ${focus ? '' : 'current'}" onclick="setFocus(null)">องค์กร</span>`];
   if (focus) {
     ancestorsOf(focus).forEach(a => {
@@ -354,6 +407,14 @@ function renderDrill() {
     crumbs.push(`<span class="crumb current">${esc(focus.title)}</span>`);
   }
   bc.innerHTML = crumbs.join(' ');
+
+  if (viewMode === 'chart') renderChart(focus); else renderCards(focus);
+}
+
+function renderCards(focus) {
+  const fb = document.getElementById('focusBox');
+  const rh = document.getElementById('reportsHead');
+  const rg = document.getElementById('reportGrid');
 
   // focus box + which list of reports to show
   let reports;
@@ -395,6 +456,39 @@ function renderDrill() {
         </div>
       </div>`;
   }).join('') || `<div class="empty-state">ตำแหน่งนี้ไม่มีผู้ใต้บังคับบัญชา</div>`;
+}
+
+// ---------------- Box-and-line chart render ----------------
+function chartBox(node, isTop) {
+  const kids = node.children.length;
+  const showMore = kids > 0; // a clickable hint always useful; deeper levels rely on it
+  return `
+    <div class="oc-box ${node.status}" onclick="setFocus('${node.position_id}')" title="คลิกเพื่อโฟกัสที่ตำแหน่งนี้">
+      <div class="ocb-title">${esc(node.title)}</div>
+      ${node.incumbent
+        ? `<div class="ocb-person">${esc(node.incumbent)}</div>`
+        : `<div class="ocb-person vacant">— ${node.acting_coverage ? 'รักษาการ: ' + esc(node.acting_coverage) : 'ว่าง'}</div>`}
+      <div class="ocb-meta"><span class="badge ${node.status}">${statusLabel(node.status)}</span>${node.grade ? `<span class="grade-tag">${esc(node.grade)}</span>` : ''}</div>
+      <div class="ocb-dept">${esc(node.department)}</div>
+      ${kids ? `<div class="ocb-more">▾ ${kids} ตำแหน่งตรง · ${descendantCount(node)} ใต้สังกัด</div>` : ''}
+    </div>`;
+}
+
+function chartNodeHtml(node, depth) {
+  let html = '<li>' + chartBox(node, depth === 0);
+  if (node.children.length && depth < CHART_MAX_DEPTH) {
+    html += '<ul>' + node.children.map(ch => chartNodeHtml(ch, depth + 1)).join('') + '</ul>';
+  }
+  html += '</li>';
+  return html;
+}
+
+function renderChart(focus) {
+  const cv = document.getElementById('chartView');
+  const tops = focus ? [focus] : roots;
+  if (!tops.length) { cv.innerHTML = '<div class="empty-state">ไม่มีข้อมูล</div>'; return; }
+  cv.innerHTML = `<div class="oc-scroll"><ul class="octree">${tops.map(n => chartNodeHtml(n, 0)).join('')}</ul></div>`
+    + `<p class="small-muted" style="margin-top:10px">แสดง ${CHART_MAX_DEPTH} ชั้นถัดลงจากตำแหน่งที่โฟกัส — คลิกกล่องที่มี ▾ เพื่อเลื่อนโฟกัสลงไปดูชั้นถัดไป</p>`;
 }
 
 // ---------------- Search (jump to node) ----------------
