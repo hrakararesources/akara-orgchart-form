@@ -115,7 +115,10 @@
   .seg-btn.active { background: var(--navy); color: white; }
 
   /* ---------- Box-and-line chart (Excel style) ---------- */
-  .oc-scroll { overflow-x: auto; padding: 8px 4px 16px; }
+  .zoom-bar { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .zoom-bar button.secondary { padding: 6px 12px; }
+  .oc-scroll { overflow: auto; padding: 8px 4px 16px; max-height: 72vh; }
+  .oc-zoom { display: inline-block; min-width: 100%; }
   .octree, .octree ul { position: relative; padding: 16px 0 0; white-space: nowrap; margin: 0 auto; text-align: center; }
   .octree li { display: inline-block; vertical-align: top; text-align: center; list-style: none; position: relative; padding: 16px 6px 0; }
   /* connector lines */
@@ -487,8 +490,38 @@ function renderChart(focus) {
   const cv = document.getElementById('chartView');
   const tops = focus ? [focus] : roots;
   if (!tops.length) { cv.innerHTML = '<div class="empty-state">ไม่มีข้อมูล</div>'; return; }
-  cv.innerHTML = `<div class="oc-scroll"><ul class="octree">${tops.map(n => chartNodeHtml(n, 0)).join('')}</ul></div>`
-    + `<p class="small-muted" style="margin-top:10px">แสดง ${CHART_MAX_DEPTH} ชั้นถัดลงจากตำแหน่งที่โฟกัส — คลิกกล่องที่มี ▾ เพื่อเลื่อนโฟกัสลงไปดูชั้นถัดไป</p>`;
+  cv.innerHTML = `
+    <div class="zoom-bar">
+      <button class="secondary" onclick="zoomBy(-0.1)" title="ซูมออก">−</button>
+      <span class="small-muted" id="zoomPct" style="min-width:48px;text-align:center">100%</span>
+      <button class="secondary" onclick="zoomBy(0.1)" title="ซูมเข้า">+</button>
+      <button class="secondary" onclick="zoomFit()">พอดีหน้าจอ</button>
+      <span class="small-muted">· คลิกกล่องที่มี ▾ เพื่อเจาะลงดูชั้นถัดไป</span>
+    </div>
+    <div class="oc-scroll" id="ocScroll"><div class="oc-zoom" id="ocZoom"><ul class="octree">${tops.map(n => chartNodeHtml(n, 0)).join('')}</ul></div></div>`;
+  requestAnimationFrame(zoomFit);  // default to fitting the whole flow on screen
+}
+
+let chartZoom = 1;
+function applyZoom() {
+  const z = document.getElementById('ocZoom');
+  if (z) z.style.zoom = chartZoom;
+  const p = document.getElementById('zoomPct');
+  if (p) p.textContent = Math.round(chartZoom * 100) + '%';
+}
+function zoomBy(d) {
+  chartZoom = Math.min(1.5, Math.max(0.3, +(chartZoom + d).toFixed(2)));
+  applyZoom();
+}
+function zoomFit() {
+  const sc = document.getElementById('ocScroll');
+  const z = document.getElementById('ocZoom');
+  if (!sc || !z) return;
+  z.style.zoom = 1;                                  // measure natural width unscaled
+  const natural = z.scrollWidth;
+  const avail = sc.clientWidth - 6;
+  chartZoom = (natural > avail) ? Math.max(0.3, +(avail / natural).toFixed(2)) : 1;
+  applyZoom();
 }
 
 // ---------------- Search (jump to node) ----------------
