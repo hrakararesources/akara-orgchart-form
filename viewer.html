@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Akara Org Chart — แผนผังองค์กร</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --navy: #1B4BA8; --navy-dark: #123372; --gold: #F5B731; --gold-dark: #C99419;
+    --bg: #F5F6F8; --surface: #FFFFFF; --border: #E2E5EA;
+    --text: #1A1D29; --text-muted: #6B7280;
+    --success-bg: #E6F4EA; --success-text: #1E7A34;
+    --danger-bg: #FCE8E8; --danger-text: #B42318;
+    --warning-bg: #FFF4DE; --warning-text: #92600A;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+  a { color: var(--navy); }
+
+  header.topbar { background: var(--navy); color: white; padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .brand { display: flex; align-items: baseline; gap: 8px; }
+  .brand .mark { width: 10px; height: 10px; border-radius: 50%; background: var(--gold); display: inline-block; }
+  .brand h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: 0.2px; }
+  .brand span.sub { font-size: 12px; color: #C9D6F0; font-weight: 400; }
+  .who { font-size: 13px; color: #C9D6F0; display: flex; align-items: center; gap: 12px; }
+  .who button { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25);
+    color: white; padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+  .who button:hover { background: rgba(255,255,255,0.22); }
+
+  nav.tabs { background: var(--surface); border-bottom: 1px solid var(--border); display: flex;
+    overflow-x: auto; padding: 0 12px; }
+  nav.tabs button { background: none; border: none; cursor: pointer; padding: 14px 16px;
+    font-size: 14px; font-weight: 500; color: var(--text-muted); white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; }
+  nav.tabs button:hover { color: var(--navy); }
+  nav.tabs button.active { color: var(--navy); border-bottom-color: var(--gold); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+  .panel { display: none; } .panel.active { display: block; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px; margin-bottom: 18px; }
+  .card h2 { font-size: 16px; margin: 0 0 4px; font-weight: 600; }
+  .card p.hint { font-size: 13px; color: var(--text-muted); margin: 0 0 16px; }
+
+  input[type=text], input[type=email], input[type=password], select {
+    width: 100%; padding: 9px 11px; font-size: 14px; border: 1px solid var(--border);
+    border-radius: 8px; background: white; color: var(--text); font-family: inherit; }
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  .controls input, .controls select { width: auto; min-width: 180px; }
+  button.secondary { background: white; border: 1px solid var(--border); color: var(--text);
+    padding: 9px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  button.secondary:hover { background: #F0F3FB; }
+  button.primary { background: var(--navy); color: white; border: none; padding: 10px 18px;
+    border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+  button.primary:hover { background: var(--navy-dark); }
+
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500; }
+  .badge.filled { background: var(--success-bg); color: var(--success-text); }
+  .badge.vacant { background: var(--danger-bg); color: var(--danger-text); }
+  .badge.pending, .badge.filled_pending_name { background: var(--warning-bg); color: var(--warning-text); }
+  .badge.unknown { background: #EEE; color: var(--text-muted); }
+
+  /* ---------- Tree ---------- */
+  .tree, .tree ul { list-style: none; margin: 0; padding: 0; }
+  .tree ul { margin-left: 22px; border-left: 1px dashed var(--border); padding-left: 6px; }
+  .tree li { margin: 3px 0; }
+  .node-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); }
+  .node-row:hover { background: #FAFBFC; }
+  .node-row.match { background: #FFF7E0; border-color: var(--gold-dark); }
+  .caret { cursor: pointer; width: 18px; height: 18px; flex: 0 0 18px; display: inline-flex;
+    align-items: center; justify-content: center; color: var(--text-muted); font-size: 11px;
+    border: 1px solid var(--border); border-radius: 5px; background: white; user-select: none; }
+  .caret.leaf { visibility: hidden; }
+  .node-title { font-weight: 600; font-size: 13.5px; }
+  .node-grade { font-size: 11px; color: var(--text-muted); border: 1px solid var(--border);
+    border-radius: 5px; padding: 0 5px; }
+  .node-person { font-size: 13px; color: var(--text); }
+  .node-person.vacant { color: var(--danger-text); font-style: italic; }
+  .node-dept { font-size: 11.5px; color: var(--text-muted); }
+  li.collapsed > ul { display: none; }
+  .count-pill { font-size: 11px; color: var(--text-muted); background: #F0F3FB; border-radius: 999px; padding: 0 7px; }
+
+  /* ---------- Dashboard ---------- */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat .v { font-size: 26px; font-weight: 700; }
+  .stat .l { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+  .stat.vac .v { color: var(--danger-text); }
+  .stat.fill .v { color: var(--success-text); }
+
+  .bar-row { display: grid; grid-template-columns: 220px 1fr 70px; align-items: center; gap: 10px; margin: 7px 0; font-size: 13px; }
+  .bar-track { background: #EEF0F3; border-radius: 6px; height: 18px; overflow: hidden; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-dark)); border-radius: 6px; }
+  .bar-row .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-row .pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+  .bar-row.high .bar-fill { background: linear-gradient(90deg, #F5917B, var(--danger-text)); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; padding: 9px 10px; color: var(--text-muted); font-weight: 500;
+    border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+  td { padding: 9px 10px; border-bottom: 1px solid #EEF0F3; }
+  tr:hover td { background: #FAFBFC; }
+  .table-scroll { max-height: 460px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+
+  .empty-state { text-align: center; color: var(--text-muted); padding: 40px 20px; font-size: 14px; }
+  .small-muted { color: var(--text-muted); font-size: 12.5px; }
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 36px 32px; width: 100%; max-width: 380px; }
+  .login-card .brand { color: var(--navy); margin-bottom: 22px; justify-content: center; }
+  .login-card .brand h1 { color: var(--navy); }
+  label { display: block; font-size: 13px; font-weight: 500; margin: 14px 0 6px; }
+  .login-card p.err { color: var(--danger-text); font-size: 13px; margin-top: 10px; }
+  .login-card p.note { color: var(--text-muted); font-size: 12.5px; margin-top: 18px; text-align: center; }
+  .login-card button.primary { width: 100%; margin-top: 18px; }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <div class="brand"><span class="mark"></span><h1>Akara Org Chart</h1></div>
+    <label for="loginEmail">อีเมล</label>
+    <input type="email" id="loginEmail" placeholder="you@akararesources.com">
+    <label for="loginPassword">รหัสผ่าน</label>
+    <input type="password" id="loginPassword">
+    <button class="primary" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <p class="err" id="loginErr" style="display:none"></p>
+    <p class="note">ดูแผนผังองค์กรและตำแหน่งว่าง — ใช้บัญชีพนักงานที่มีสิทธิ์เข้าระบบ</p>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appScreen" style="display:none">
+  <header class="topbar">
+    <div class="brand"><span class="mark"></span><h1>Akara Org Chart<span class="sub">&nbsp;&nbsp;แผนผังองค์กร</span></h1></div>
+    <div class="who"><span id="whoEmail"></span><button onclick="doLogout()">ออกจากระบบ</button></div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="chart">แผนผังองค์กร</button>
+    <button class="tab-btn" data-tab="vacant">ตำแหน่งว่าง (Dashboard)</button>
+  </nav>
+
+  <main>
+    <!-- ---------- ORG CHART ---------- -->
+    <section class="panel active" id="panel-chart">
+      <div class="card">
+        <h2>แผนผังองค์กร</h2>
+        <p class="hint">คลิกปุ่ม ▸/▾ เพื่อย่อ/ขยายสายงาน — ค้นหาเพื่อกระโดดไปยังตำแหน่ง/บุคคล</p>
+        <div class="controls">
+          <input type="text" id="treeSearch" placeholder="ค้นหาชื่อตำแหน่ง/ชื่อคน...">
+          <select id="treeDivision"><option value="">ทุก Division</option></select>
+          <button class="secondary" onclick="expandAll()">ขยายทั้งหมด</button>
+          <button class="secondary" onclick="collapseAll()">ย่อทั้งหมด</button>
+          <span class="small-muted" id="treeCount"></span>
+        </div>
+        <div id="treeContainer"><div class="empty-state">กำลังโหลด...</div></div>
+      </div>
+    </section>
+
+    <!-- ---------- VACANT DASHBOARD ---------- -->
+    <section class="panel" id="panel-vacant">
+      <div class="card">
+        <h2>ภาพรวมตำแหน่งว่าง</h2>
+        <p class="hint">เปอร์เซ็นต์ตำแหน่งว่างต่อแผนก (เรียงมากไปน้อย) — แถบสีแดงคือแผนกที่ว่าง ≥ 40%</p>
+        <div class="stat-grid" id="vacStats"></div>
+        <div class="controls">
+          <select id="vacDivision"><option value="">ทุก Division</option></select>
+        </div>
+        <div id="vacBars"></div>
+      </div>
+      <div class="card">
+        <h2>รายการตำแหน่งว่างทั้งหมด</h2>
+        <p class="hint">ตำแหน่งที่ว่างหรือรอชื่อผู้สมัคร (ใช้สำหรับวางแผนสรรหา)</p>
+        <div class="controls">
+          <input type="text" id="vacSearch" placeholder="ค้นหาชื่อตำแหน่ง...">
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Division</th><th>Department</th><th>Grade</th><th>ตำแหน่ง</th><th>สถานะ</th><th>รักษาการ</th><th>รายงานต่อ</th></tr></thead>
+            <tbody id="vacRows"></tbody>
+          </table>
+        </div>
+        <p class="small-muted" id="vacCount" style="margin-top:10px"></p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+// =====================================================================
+// CONFIG — ใช้ค่าเดียวกับ hr_admin_form.html (anon key เป็น public key ปลอดภัย)
+// ตารางอยู่ใน schema `orgchart` (ต้อง expose ใน Dashboard > Settings > API)
+// =====================================================================
+const SUPABASE_URL = 'https://allwoertbjgyfqnqgetu.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsbHdvZXJ0YmpneWZxbnFnZXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4OTc4NzgsImV4cCI6MjA5NzQ3Mzg3OH0.kpzH27gZyBeBE7K132wYdlDVjZhCN2uNBTa8XWrUOBc';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { db: { schema: 'orgchart' } });
+
+let allRows = [];          // v_org_chart_current (active)
+let byId = new Map();      // position_id -> node
+let roots = [];
+let collapsed = new Set(); // position_ids whose children are hidden
+let headcount = [];        // headcount_summary
+
+// ---------------- Auth (any authenticated user, no HR-admin needed) ----------------
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.style.display = 'none';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) { errEl.textContent = 'เข้าสู่ระบบไม่สำเร็จ: ' + error.message; errEl.style.display = 'block'; return; }
+  await enterApp();
+}
+async function enterApp() {
+  const { data: { user } } = await sb.auth.getUser();
+  document.getElementById('whoEmail').textContent = user.email;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  await loadData();
+}
+async function doLogout() {
+  await sb.auth.signOut();
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+}
+(async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) await enterApp();
+})();
+
+// ---------------- Tabs ----------------
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function statusLabel(s) { return { filled:'Filled', vacant:'Vacant', filled_pending_name:'Pending', unknown:'Unknown' }[s] || s; }
+
+// ---------------- Load ----------------
+async function loadData() {
+  const { data: rows, error } = await sb.from('v_org_chart_current')
+    .select('position_id, division, department, grade, title, incumbent, status, acting_coverage, reports_to_position_id, reports_to_title, is_active')
+    .eq('is_active', true);
+  if (error) { document.getElementById('treeContainer').innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${esc(error.message)}</div>`; return; }
+  allRows = rows || [];
+
+  const { data: hc } = await sb.from('headcount_summary').select('*');
+  headcount = hc || [];
+
+  // division dropdowns
+  const divs = [...new Set(allRows.map(r => r.division))].sort();
+  ['treeDivision', 'vacDivision'].forEach(id => {
+    const sel = document.getElementById(id);
+    divs.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; sel.appendChild(o); });
+  });
+
+  buildTreeIndex();
+  renderTree();
+  renderVacant();
+}
+
+// ---------------- Tree build ----------------
+function buildTreeIndex() {
+  byId = new Map(allRows.map(r => [r.position_id, { ...r, children: [] }]));
+  roots = [];
+  for (const node of byId.values()) {
+    const parent = node.reports_to_position_id ? byId.get(node.reports_to_position_id) : null;
+    if (parent) parent.children.push(node); else roots.push(node);
+  }
+  // sort children: by department then title for readability
+  const sortFn = (a, b) => (a.department||'').localeCompare(b.department||'') || (a.title||'').localeCompare(b.title||'');
+  byId.forEach(n => n.children.sort(sortFn));
+  roots.sort(sortFn);
+  // default: collapse everything below the root level (show roots + their direct reports)
+  collapsed = new Set();
+  byId.forEach(n => { if (n.children.length) collapsed.add(n.position_id); });
+  roots.forEach(r => collapsed.delete(r.position_id)); // keep roots open
+}
+
+function descendantCount(node) {
+  let c = 0;
+  for (const ch of node.children) c += 1 + descendantCount(ch);
+  return c;
+}
+
+function renderTree() {
+  const divFilter = document.getElementById('treeDivision').value;
+  const q = document.getElementById('treeSearch').value.trim().toLowerCase();
+
+  // when searching: find matches + force-open their ancestor path
+  let forceOpen = null, matchIds = null;
+  if (q) {
+    matchIds = new Set();
+    for (const n of byId.values()) {
+      if ((n.title||'').toLowerCase().includes(q) || (n.incumbent||'').toLowerCase().includes(q)) matchIds.add(n.position_id);
+    }
+    forceOpen = new Set();
+    for (const id of matchIds) {
+      let cur = byId.get(id);
+      while (cur && cur.reports_to_position_id) { forceOpen.add(cur.reports_to_position_id); cur = byId.get(cur.reports_to_position_id); }
+    }
+  }
+
+  const container = document.getElementById('treeContainer');
+  const ul = document.createElement('ul');
+  ul.className = 'tree';
+  let shown = 0;
+
+  function passesDiv(node) {
+    if (!divFilter) return true;
+    // keep node if itself or any descendant is in the division
+    if (node.division === divFilter) return true;
+    return node.children.some(passesDiv);
+  }
+  function inSearch(node) {
+    if (!q) return true;
+    if (matchIds.has(node.position_id)) return true;
+    return node.children.some(inSearch);
+  }
+
+  function renderNode(node, parentUl) {
+    if (!passesDiv(node) || !inSearch(node)) return;
+    shown++;
+    const li = document.createElement('li');
+    const hasKids = node.children.length > 0;
+    const isOpen = q ? (forceOpen.has(node.position_id) || true) : !collapsed.has(node.position_id);
+    if (hasKids && !isOpen) li.className = 'collapsed';
+
+    const row = document.createElement('div');
+    row.className = 'node-row' + (matchIds && matchIds.has(node.position_id) ? ' match' : '');
+    const personHtml = node.incumbent
+      ? `<span class="node-person">${esc(node.incumbent)}</span>`
+      : `<span class="node-person vacant">— ${node.acting_coverage ? 'รักษาการ: ' + esc(node.acting_coverage) : 'ว่าง'}</span>`;
+    row.innerHTML =
+      `<span class="caret ${hasKids ? '' : 'leaf'}">${hasKids ? (li.className === 'collapsed' ? '▸' : '▾') : '•'}</span>` +
+      `<span class="node-title">${esc(node.title)}</span>` +
+      (node.grade ? `<span class="node-grade">${esc(node.grade)}</span>` : '') +
+      personHtml +
+      `<span class="badge ${node.status}">${statusLabel(node.status)}</span>` +
+      `<span class="node-dept">${esc(node.department)}</span>` +
+      (hasKids ? `<span class="count-pill">${descendantCount(node)} ใต้สังกัด</span>` : '');
+
+    if (hasKids) {
+      const caret = row.querySelector('.caret');
+      caret.addEventListener('click', () => {
+        if (collapsed.has(node.position_id)) collapsed.delete(node.position_id); else collapsed.add(node.position_id);
+        renderTree();
+      });
+    }
+    li.appendChild(row);
+
+    if (hasKids) {
+      const childUl = document.createElement('ul');
+      node.children.forEach(ch => renderNode(ch, childUl));
+      li.appendChild(childUl);
+    }
+    parentUl.appendChild(li);
+  }
+
+  roots.forEach(r => renderNode(r, ul));
+  container.innerHTML = '';
+  container.appendChild(shown ? ul : Object.assign(document.createElement('div'), { className: 'empty-state', textContent: 'ไม่พบตำแหน่งที่ตรงกับเงื่อนไข' }));
+  document.getElementById('treeCount').textContent = `${allRows.length} ตำแหน่ง` + (q ? ` · พบ ${matchIds.size} ที่ตรงคำค้น` : '');
+}
+
+function expandAll() { collapsed.clear(); renderTree(); }
+function collapseAll() { collapsed = new Set(); byId.forEach(n => { if (n.children.length) collapsed.add(n.position_id); }); roots.forEach(r => collapsed.delete(r.position_id)); renderTree(); }
+document.getElementById('treeSearch').addEventListener('input', renderTree);
+document.getElementById('treeDivision').addEventListener('change', renderTree);
+
+// ---------------- Vacant dashboard ----------------
+function renderVacant() {
+  const divFilter = document.getElementById('vacDivision').value;
+  const rows = headcount.filter(h => !divFilter || h.division === divFilter);
+
+  const totFilled = rows.reduce((s, r) => s + Number(r.filled), 0);
+  const totVacant = rows.reduce((s, r) => s + Number(r.vacant), 0);
+  const totPending = rows.reduce((s, r) => s + Number(r.pending), 0);
+  const totAll = rows.reduce((s, r) => s + Number(r.total), 0);
+  const pctOverall = totAll ? Math.round(100 * totVacant / totAll) : 0;
+  document.getElementById('vacStats').innerHTML = `
+    <div class="stat fill"><div class="v">${totFilled}</div><div class="l">มีคน (Filled)</div></div>
+    <div class="stat vac"><div class="v">${totVacant}</div><div class="l">ว่าง (Vacant)</div></div>
+    <div class="stat"><div class="v">${totPending}</div><div class="l">รอชื่อ (Pending)</div></div>
+    <div class="stat"><div class="v">${totAll}</div><div class="l">ทั้งหมด</div></div>
+    <div class="stat vac"><div class="v">${pctOverall}%</div><div class="l">ว่างเฉลี่ย</div></div>`;
+
+  const bars = rows
+    .map(r => ({ ...r, pct: Number(r.total) ? Math.round(100 * Number(r.vacant) / Number(r.total)) : 0 }))
+    .filter(r => Number(r.vacant) > 0)
+    .sort((a, b) => b.pct - a.pct);
+  document.getElementById('vacBars').innerHTML = bars.length ? bars.map(r => `
+    <div class="bar-row ${r.pct >= 40 ? 'high' : ''}">
+      <span class="lbl" title="${esc(r.division)} / ${esc(r.department)}">${esc(r.department)}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${r.pct}%"></span></span>
+      <span class="pct">${r.pct}% (${r.vacant}/${r.total})</span>
+    </div>`).join('') : `<div class="empty-state">ไม่มีตำแหน่งว่างใน Division นี้</div>`;
+
+  renderVacTable();
+}
+
+function renderVacTable() {
+  const divFilter = document.getElementById('vacDivision').value;
+  const q = document.getElementById('vacSearch').value.trim().toLowerCase();
+  const rows = allRows.filter(r =>
+    (r.status === 'vacant' || r.status === 'filled_pending_name') &&
+    (!divFilter || r.division === divFilter) &&
+    (!q || (r.title||'').toLowerCase().includes(q))
+  ).sort((a,b) => (a.division||'').localeCompare(b.division||'') || (a.department||'').localeCompare(b.department||''));
+
+  document.getElementById('vacRows').innerHTML = rows.map(r => `
+    <tr>
+      <td>${esc(r.division)}</td><td>${esc(r.department)}</td><td>${esc(r.grade||'—')}</td>
+      <td>${esc(r.title)}</td>
+      <td><span class="badge ${r.status}">${statusLabel(r.status)}</span></td>
+      <td>${r.acting_coverage ? esc(r.acting_coverage) : '—'}</td>
+      <td>${esc(r.reports_to_title || 'สูงสุดในองค์กร')}</td>
+    </tr>`).join('') || `<tr><td colspan="7"><div class="empty-state">ไม่พบตำแหน่งว่างที่ตรงเงื่อนไข</div></td></tr>`;
+  document.getElementById('vacCount').textContent = `${rows.length} ตำแหน่งว่าง`;
+}
+
+document.getElementById('vacDivision').addEventListener('change', renderVacant);
+document.getElementById('vacSearch').addEventListener('input', renderVacTable);
+</script>
+</body>
+</html>
