@@ -51,7 +51,7 @@
     width: 100%; padding: 9px 11px; font-size: 14px; border: 1px solid var(--border);
     border-radius: 8px; background: white; color: var(--text); font-family: inherit; }
   .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
-  .controls input, .controls select { width: auto; min-width: 180px; }
+  .controls input, .controls select { width: auto; min-width: 200px; }
   button.secondary { background: white; border: 1px solid var(--border); color: var(--text);
     padding: 9px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; white-space: nowrap; }
   button.secondary:hover { background: #F0F3FB; }
@@ -65,26 +65,47 @@
   .badge.pending, .badge.filled_pending_name { background: var(--warning-bg); color: var(--warning-text); }
   .badge.unknown { background: #EEE; color: var(--text-muted); }
 
-  /* ---------- Tree ---------- */
-  .tree, .tree ul { list-style: none; margin: 0; padding: 0; }
-  .tree ul { margin-left: 22px; border-left: 1px dashed var(--border); padding-left: 6px; }
-  .tree li { margin: 3px 0; }
-  .node-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px;
-    border: 1px solid var(--border); background: var(--surface); }
-  .node-row:hover { background: #FAFBFC; }
-  .node-row.match { background: #FFF7E0; border-color: var(--gold-dark); }
-  .caret { cursor: pointer; width: 18px; height: 18px; flex: 0 0 18px; display: inline-flex;
-    align-items: center; justify-content: center; color: var(--text-muted); font-size: 11px;
-    border: 1px solid var(--border); border-radius: 5px; background: white; user-select: none; }
-  .caret.leaf { visibility: hidden; }
-  .node-title { font-weight: 600; font-size: 13.5px; }
-  .node-grade { font-size: 11px; color: var(--text-muted); border: 1px solid var(--border);
-    border-radius: 5px; padding: 0 5px; }
-  .node-person { font-size: 13px; color: var(--text); }
-  .node-person.vacant { color: var(--danger-text); font-style: italic; }
-  .node-dept { font-size: 11.5px; color: var(--text-muted); }
-  li.collapsed > ul { display: none; }
-  .count-pill { font-size: 11px; color: var(--text-muted); background: #F0F3FB; border-radius: 999px; padding: 0 7px; }
+  /* ---------- Breadcrumb ---------- */
+  .breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 16px; font-size: 13px; }
+  .breadcrumb .crumb { background: #F0F3FB; border: 1px solid #D7E0F5; color: var(--navy);
+    padding: 4px 10px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+  .breadcrumb .crumb:hover { background: #E1E9FA; }
+  .breadcrumb .crumb.current { background: var(--navy); color: white; border-color: var(--navy); cursor: default; }
+  .breadcrumb .sep { color: var(--text-muted); }
+
+  /* ---------- Focus box ---------- */
+  .focus-box { border: 2px solid var(--navy); border-radius: var(--radius); padding: 16px 18px;
+    background: linear-gradient(180deg, #F7F9FF, #FFFFFF); margin-bottom: 8px; }
+  .focus-box .fb-title { font-size: 18px; font-weight: 700; color: var(--navy); }
+  .focus-box .fb-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+  .focus-box .fb-person { font-size: 14px; }
+  .focus-box .fb-person.vacant { color: var(--danger-text); font-style: italic; }
+  .focus-box .fb-dept { font-size: 12.5px; color: var(--text-muted); }
+  .grade-tag { font-size: 11px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 5px; padding: 0 6px; }
+
+  .reports-head { font-size: 13px; color: var(--text-muted); margin: 18px 0 10px; font-weight: 600; }
+  .report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .report-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px;
+    background: var(--surface); cursor: default; transition: border-color .12s, box-shadow .12s, transform .05s; position: relative; }
+  .report-card.has-kids { cursor: pointer; }
+  .report-card.has-kids:hover { border-color: var(--navy); box-shadow: 0 4px 14px rgba(27,75,168,0.10); transform: translateY(-1px); }
+  .report-card .rc-title { font-weight: 600; font-size: 14px; padding-right: 22px; }
+  .report-card .rc-person { font-size: 13px; margin-top: 4px; }
+  .report-card .rc-person.vacant { color: var(--danger-text); font-style: italic; }
+  .report-card .rc-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+  .report-card .rc-dept { font-size: 11.5px; color: var(--text-muted); }
+  .report-card .rc-kids { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--navy);
+    background: #F0F3FB; border-radius: 999px; padding: 1px 8px; }
+  .report-card .chev { position: absolute; top: 12px; right: 12px; color: var(--navy); font-size: 14px; }
+  .report-card:not(.has-kids) .chev { display: none; }
+
+  /* ---------- Search results ---------- */
+  .search-results { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+  .search-results .sr-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #EEF0F3; }
+  .search-results .sr-item:last-child { border-bottom: none; }
+  .search-results .sr-item:hover { background: #F0F3FB; }
+  .search-results .sr-t { font-weight: 600; font-size: 13.5px; }
+  .search-results .sr-s { font-size: 12px; color: var(--text-muted); }
 
   /* ---------- Dashboard ---------- */
   .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
@@ -93,8 +114,7 @@
   .stat .l { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
   .stat.vac .v { color: var(--danger-text); }
   .stat.fill .v { color: var(--success-text); }
-
-  .bar-row { display: grid; grid-template-columns: 220px 1fr 70px; align-items: center; gap: 10px; margin: 7px 0; font-size: 13px; }
+  .bar-row { display: grid; grid-template-columns: 220px 1fr 86px; align-items: center; gap: 10px; margin: 7px 0; font-size: 13px; }
   .bar-track { background: #EEF0F3; border-radius: 6px; height: 18px; overflow: hidden; }
   .bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-dark)); border-radius: 6px; }
   .bar-row .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -150,19 +170,22 @@
   </nav>
 
   <main>
-    <!-- ---------- ORG CHART ---------- -->
+    <!-- ---------- ORG CHART (drill-down) ---------- -->
     <section class="panel active" id="panel-chart">
       <div class="card">
         <h2>แผนผังองค์กร</h2>
-        <p class="hint">คลิกปุ่ม ▸/▾ เพื่อย่อ/ขยายสายงาน — ค้นหาเพื่อกระโดดไปยังตำแหน่ง/บุคคล</p>
+        <p class="hint">คลิกการ์ดที่มี ▸ เพื่อเจาะลงดูผู้ใต้บังคับบัญชา — ใช้แถบเส้นทางด้านบนเพื่อย้อนกลับ หรือค้นหาเพื่อกระโดดไปยังตำแหน่ง/บุคคล</p>
         <div class="controls">
           <input type="text" id="treeSearch" placeholder="ค้นหาชื่อตำแหน่ง/ชื่อคน...">
-          <select id="treeDivision"><option value="">ทุก Division</option></select>
-          <button class="secondary" onclick="expandAll()">ขยายทั้งหมด</button>
-          <button class="secondary" onclick="collapseAll()">ย่อทั้งหมด</button>
-          <span class="small-muted" id="treeCount"></span>
+          <button class="secondary" onclick="setFocus(null)">▲ กลับสู่ระดับบนสุด</button>
         </div>
-        <div id="treeContainer"><div class="empty-state">กำลังโหลด...</div></div>
+        <div class="search-results" id="searchResults" style="display:none"></div>
+        <div id="drillView">
+          <nav class="breadcrumb" id="breadcrumb"></nav>
+          <div id="focusBox"></div>
+          <div class="reports-head" id="reportsHead"></div>
+          <div class="report-grid" id="reportGrid"></div>
+        </div>
       </div>
     </section>
 
@@ -205,13 +228,13 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { db: { schema: 'orgchart' } });
 
-let allRows = [];          // v_org_chart_current (active)
-let byId = new Map();      // position_id -> node
+let allRows = [];
+let byId = new Map();
 let roots = [];
-let collapsed = new Set(); // position_ids whose children are hidden
-let headcount = [];        // headcount_summary
+let headcount = [];
+let focusId = null;   // currently focused position (null = top level / list of roots)
 
-// ---------------- Auth (any authenticated user, no HR-admin needed) ----------------
+// ---------------- Auth (any authenticated user) ----------------
 async function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
@@ -256,25 +279,22 @@ async function loadData() {
   const { data: rows, error } = await sb.from('v_org_chart_current')
     .select('position_id, division, department, grade, title, incumbent, status, acting_coverage, reports_to_position_id, reports_to_title, is_active')
     .eq('is_active', true);
-  if (error) { document.getElementById('treeContainer').innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${esc(error.message)}</div>`; return; }
+  if (error) { document.getElementById('drillView').innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${esc(error.message)}</div>`; return; }
   allRows = rows || [];
 
   const { data: hc } = await sb.from('headcount_summary').select('*');
   headcount = hc || [];
 
-  // division dropdowns
   const divs = [...new Set(allRows.map(r => r.division))].sort();
-  ['treeDivision', 'vacDivision'].forEach(id => {
-    const sel = document.getElementById(id);
-    divs.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; sel.appendChild(o); });
-  });
+  const vsel = document.getElementById('vacDivision');
+  divs.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; vsel.appendChild(o); });
 
   buildTreeIndex();
-  renderTree();
+  focusId = roots.length === 1 ? roots[0].position_id : null;  // auto-focus single root
+  renderDrill();
   renderVacant();
 }
 
-// ---------------- Tree build ----------------
 function buildTreeIndex() {
   byId = new Map(allRows.map(r => [r.position_id, { ...r, children: [] }]));
   roots = [];
@@ -282,14 +302,9 @@ function buildTreeIndex() {
     const parent = node.reports_to_position_id ? byId.get(node.reports_to_position_id) : null;
     if (parent) parent.children.push(node); else roots.push(node);
   }
-  // sort children: by department then title for readability
   const sortFn = (a, b) => (a.department||'').localeCompare(b.department||'') || (a.title||'').localeCompare(b.title||'');
   byId.forEach(n => n.children.sort(sortFn));
   roots.sort(sortFn);
-  // default: collapse everything below the root level (show roots + their direct reports)
-  collapsed = new Set();
-  byId.forEach(n => { if (n.children.length) collapsed.add(n.position_id); });
-  roots.forEach(r => collapsed.delete(r.position_id)); // keep roots open
 }
 
 function descendantCount(node) {
@@ -297,91 +312,111 @@ function descendantCount(node) {
   for (const ch of node.children) c += 1 + descendantCount(ch);
   return c;
 }
-
-function renderTree() {
-  const divFilter = document.getElementById('treeDivision').value;
-  const q = document.getElementById('treeSearch').value.trim().toLowerCase();
-
-  // when searching: find matches + force-open their ancestor path
-  let forceOpen = null, matchIds = null;
-  if (q) {
-    matchIds = new Set();
-    for (const n of byId.values()) {
-      if ((n.title||'').toLowerCase().includes(q) || (n.incumbent||'').toLowerCase().includes(q)) matchIds.add(n.position_id);
-    }
-    forceOpen = new Set();
-    for (const id of matchIds) {
-      let cur = byId.get(id);
-      while (cur && cur.reports_to_position_id) { forceOpen.add(cur.reports_to_position_id); cur = byId.get(cur.reports_to_position_id); }
-    }
-  }
-
-  const container = document.getElementById('treeContainer');
-  const ul = document.createElement('ul');
-  ul.className = 'tree';
-  let shown = 0;
-
-  function passesDiv(node) {
-    if (!divFilter) return true;
-    // keep node if itself or any descendant is in the division
-    if (node.division === divFilter) return true;
-    return node.children.some(passesDiv);
-  }
-  function inSearch(node) {
-    if (!q) return true;
-    if (matchIds.has(node.position_id)) return true;
-    return node.children.some(inSearch);
-  }
-
-  function renderNode(node, parentUl) {
-    if (!passesDiv(node) || !inSearch(node)) return;
-    shown++;
-    const li = document.createElement('li');
-    const hasKids = node.children.length > 0;
-    const isOpen = q ? (forceOpen.has(node.position_id) || true) : !collapsed.has(node.position_id);
-    if (hasKids && !isOpen) li.className = 'collapsed';
-
-    const row = document.createElement('div');
-    row.className = 'node-row' + (matchIds && matchIds.has(node.position_id) ? ' match' : '');
-    const personHtml = node.incumbent
-      ? `<span class="node-person">${esc(node.incumbent)}</span>`
-      : `<span class="node-person vacant">— ${node.acting_coverage ? 'รักษาการ: ' + esc(node.acting_coverage) : 'ว่าง'}</span>`;
-    row.innerHTML =
-      `<span class="caret ${hasKids ? '' : 'leaf'}">${hasKids ? (li.className === 'collapsed' ? '▸' : '▾') : '•'}</span>` +
-      `<span class="node-title">${esc(node.title)}</span>` +
-      (node.grade ? `<span class="node-grade">${esc(node.grade)}</span>` : '') +
-      personHtml +
-      `<span class="badge ${node.status}">${statusLabel(node.status)}</span>` +
-      `<span class="node-dept">${esc(node.department)}</span>` +
-      (hasKids ? `<span class="count-pill">${descendantCount(node)} ใต้สังกัด</span>` : '');
-
-    if (hasKids) {
-      const caret = row.querySelector('.caret');
-      caret.addEventListener('click', () => {
-        if (collapsed.has(node.position_id)) collapsed.delete(node.position_id); else collapsed.add(node.position_id);
-        renderTree();
-      });
-    }
-    li.appendChild(row);
-
-    if (hasKids) {
-      const childUl = document.createElement('ul');
-      node.children.forEach(ch => renderNode(ch, childUl));
-      li.appendChild(childUl);
-    }
-    parentUl.appendChild(li);
-  }
-
-  roots.forEach(r => renderNode(r, ul));
-  container.innerHTML = '';
-  container.appendChild(shown ? ul : Object.assign(document.createElement('div'), { className: 'empty-state', textContent: 'ไม่พบตำแหน่งที่ตรงกับเงื่อนไข' }));
-  document.getElementById('treeCount').textContent = `${allRows.length} ตำแหน่ง` + (q ? ` · พบ ${matchIds.size} ที่ตรงคำค้น` : '');
+function ancestorsOf(node) {
+  const chain = [];
+  let cur = node.reports_to_position_id ? byId.get(node.reports_to_position_id) : null;
+  while (cur) { chain.unshift(cur); cur = cur.reports_to_position_id ? byId.get(cur.reports_to_position_id) : null; }
+  return chain; // top-most first, excludes node itself
 }
 
-function expandAll() { collapsed.clear(); renderTree(); }
-function collapseAll() { collapsed = new Set(); byId.forEach(n => { if (n.children.length) collapsed.add(n.position_id); }); roots.forEach(r => collapsed.delete(r.position_id)); renderTree(); }
-document.getElementById('treeSearch').addEventListener('input', renderTree);
-document.getElementById('treeDivision').addEventListener('change', renderTree);
+// ---------------- Drill-down render ----------------
+function setFocus(id) {
+  focusId = id;
+  document.getElementById('treeSearch').value = '';
+  document.getElementById('searchResults').style.display = 'none';
+  document.getElementById('drillView').style.display = 'block';
+  renderDrill();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function personHtml(node, cls) {
+  return node.incumbent
+    ? `<span class="${cls}">${esc(node.incumbent)}</span>`
+    : `<span class="${cls} vacant">— ${node.acting_coverage ? 'รักษาการ: ' + esc(node.acting_coverage) : 'ว่าง'}</span>`;
+}
+
+function renderDrill() {
+  const bc = document.getElementById('breadcrumb');
+  const fb = document.getElementById('focusBox');
+  const rh = document.getElementById('reportsHead');
+  const rg = document.getElementById('reportGrid');
+
+  const focus = focusId ? byId.get(focusId) : null;
+
+  // breadcrumb
+  const crumbs = [`<span class="crumb ${focus ? '' : 'current'}" onclick="setFocus(null)">องค์กร</span>`];
+  if (focus) {
+    ancestorsOf(focus).forEach(a => {
+      crumbs.push('<span class="sep">›</span>');
+      crumbs.push(`<span class="crumb" onclick="setFocus('${a.position_id}')">${esc(a.title)}</span>`);
+    });
+    crumbs.push('<span class="sep">›</span>');
+    crumbs.push(`<span class="crumb current">${esc(focus.title)}</span>`);
+  }
+  bc.innerHTML = crumbs.join(' ');
+
+  // focus box + which list of reports to show
+  let reports;
+  if (focus) {
+    fb.style.display = 'block';
+    fb.innerHTML = `
+      <div class="focus-box">
+        <div class="fb-title">${esc(focus.title)}</div>
+        <div class="fb-meta">
+          ${personHtml(focus, 'fb-person')}
+          <span class="badge ${focus.status}">${statusLabel(focus.status)}</span>
+          ${focus.grade ? `<span class="grade-tag">${esc(focus.grade)}</span>` : ''}
+          <span class="fb-dept">${esc(focus.division)} / ${esc(focus.department)}</span>
+        </div>
+      </div>`;
+    reports = focus.children;
+  } else {
+    fb.style.display = 'none';
+    fb.innerHTML = '';
+    reports = roots;
+  }
+
+  rh.textContent = focus
+    ? (reports.length ? `ผู้ใต้บังคับบัญชาโดยตรง (${reports.length})` : 'ไม่มีตำแหน่งใต้สังกัด')
+    : `ตำแหน่งระดับบนสุด (${reports.length})`;
+
+  rg.innerHTML = reports.map(n => {
+    const kids = n.children.length;
+    return `
+      <div class="report-card ${kids ? 'has-kids' : ''}" ${kids ? `onclick="setFocus('${n.position_id}')"` : ''}>
+        <span class="chev">▸</span>
+        <div class="rc-title">${esc(n.title)}</div>
+        ${personHtml(n, 'rc-person')}
+        <div class="rc-row">
+          <span class="badge ${n.status}">${statusLabel(n.status)}</span>
+          ${n.grade ? `<span class="grade-tag">${esc(n.grade)}</span>` : ''}
+          <span class="rc-dept">${esc(n.department)}</span>
+          ${kids ? `<span class="rc-kids">▸ ${kids} ตำแหน่งตรง · ${descendantCount(n)} ใต้สังกัด</span>` : ''}
+        </div>
+      </div>`;
+  }).join('') || `<div class="empty-state">ตำแหน่งนี้ไม่มีผู้ใต้บังคับบัญชา</div>`;
+}
+
+// ---------------- Search (jump to node) ----------------
+function renderSearch() {
+  const q = document.getElementById('treeSearch').value.trim().toLowerCase();
+  const sr = document.getElementById('searchResults');
+  const dv = document.getElementById('drillView');
+  if (q.length < 1) { sr.style.display = 'none'; dv.style.display = 'block'; return; }
+
+  const matches = allRows.filter(r =>
+    (r.title||'').toLowerCase().includes(q) || (r.incumbent||'').toLowerCase().includes(q)
+  ).slice(0, 50);
+
+  dv.style.display = 'none';
+  sr.style.display = 'block';
+  sr.innerHTML = matches.length ? matches.map(r => `
+    <div class="sr-item" onclick="setFocus('${r.position_id}')">
+      <div class="sr-t">${esc(r.title)} ${r.incumbent ? '— ' + esc(r.incumbent) : '<span class="badge vacant">ว่าง</span>'}</div>
+      <div class="sr-s">${esc(r.division)} / ${esc(r.department)}${r.grade ? ' · ' + esc(r.grade) : ''}</div>
+    </div>`).join('') : `<div class="empty-state">ไม่พบตำแหน่งที่ตรงกับคำค้นหา</div>`;
+}
+document.getElementById('treeSearch').addEventListener('input', renderSearch);
 
 // ---------------- Vacant dashboard ----------------
 function renderVacant() {
@@ -413,7 +448,6 @@ function renderVacant() {
 
   renderVacTable();
 }
-
 function renderVacTable() {
   const divFilter = document.getElementById('vacDivision').value;
   const q = document.getElementById('vacSearch').value.trim().toLowerCase();
@@ -433,7 +467,6 @@ function renderVacTable() {
     </tr>`).join('') || `<tr><td colspan="7"><div class="empty-state">ไม่พบตำแหน่งว่างที่ตรงเงื่อนไข</div></td></tr>`;
   document.getElementById('vacCount').textContent = `${rows.length} ตำแหน่งว่าง`;
 }
-
 document.getElementById('vacDivision').addEventListener('change', renderVacant);
 document.getElementById('vacSearch').addEventListener('input', renderVacTable);
 </script>
