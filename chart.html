@@ -100,6 +100,7 @@
         <button id="oc-modeChart" onclick="ocSetMode('chart')" data-en="Tree chart" data-th="แผนภูมิเส้น">แผนภูมิเส้น</button>
       </div>
       <button class="oc-btn" onclick="ocSetFocus(null)" data-en="▲ Top" data-th="▲ บนสุด">▲ บนสุด</button>
+      <select id="oc-dept" onchange="ocDeptChange()" style="padding:9px 11px;font-size:14px;border:1px solid var(--border);border-radius:8px;font-family:inherit;min-width:200px"><option value="">— ทุกแผนก —</option></select>
     </div>
     <div class="oc-sr" id="oc-searchResults" style="display:none"></div>
     <div id="oc-drillView">
@@ -121,7 +122,7 @@ const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 async function apiGet(path){ const r=await fetch(URL+'/rest/v1/'+path,{headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Accept-Profile':'orgchart'}}); if(!r.ok) throw new Error(await r.text()); return r.json(); }
 
 let lang='th';
-let allRows=[], byId=new Map(), roots=[], focusId=null, viewMode='cards', chartZoom=1, chartDepth=2;
+let allRows=[], byId=new Map(), roots=[], focusId=null, viewMode='cards', chartZoom=1, chartDepth=2, deptFilter='';
 const OC_GRADES=['CEO','M4','M3','M2','M1 Senior','M1','S3','S2','S1','O3','O2','O1'];
 const AV=['#2B5BAE','#1a6e5a','#8e3d8e','#c0562a','#1a7a7a','#a04a1a','#2c6b2f','#7a3b6e'];
 
@@ -137,9 +138,19 @@ async function load(){
     allRows = await apiGet('v_org_chart_current?select=position_id,division,department,grade,title,incumbent,status,acting_coverage,reports_to_position_id,reports_to_title,is_active&is_active=eq.true');
   }catch(e){ document.getElementById('oc-drillView').innerHTML=`<div class="oc-empty">${ocT('โหลดข้อมูลไม่สำเร็จ','Failed to load')}: ${esc(e.message)}</div>`; return; }
   buildIndex();
+  populateDept();
   focusId = roots.length===1 ? roots[0].position_id : null;
   renderDrill();
 }
+function populateDept(){
+  const sel=document.getElementById('oc-dept'); if(!sel) return;
+  const byDiv={};
+  allRows.forEach(r=>{ (byDiv[r.division]=byDiv[r.division]||new Set()).add(r.department); });
+  let html=`<option value="">${ocT('— ทุกแผนก (ไล่ตามสายงาน) —','— All (by hierarchy) —')}</option>`;
+  Object.keys(byDiv).sort().forEach(d=>{ html+=`<optgroup label="${esc(d)}">`+[...byDiv[d]].sort().map(dep=>`<option value="${esc(dep)}">${esc(dep)}</option>`).join('')+`</optgroup>`; });
+  sel.innerHTML=html; sel.value=deptFilter;
+}
+function ocDeptChange(){ deptFilter=document.getElementById('oc-dept').value; if(deptFilter){ ocSetMode('cards'); } else { renderDrill(); } }
 function buildIndex(){
   byId=new Map(allRows.map(r=>[r.position_id,{...r,children:[]}]));
   roots=[];
@@ -150,10 +161,14 @@ function buildIndex(){
 function descCount(n){ let c=0; for(const ch of n.children) c+=1+descCount(ch); return c; }
 function ancestors(n){ const ch=[]; let cur=n.reports_to_position_id?byId.get(n.reports_to_position_id):null; while(cur){ch.unshift(cur);cur=cur.reports_to_position_id?byId.get(cur.reports_to_position_id):null;} return ch; }
 
-function ocSetFocus(id){ focusId=id; document.getElementById('oc-search').value=''; document.getElementById('oc-searchResults').style.display='none'; document.getElementById('oc-drillView').style.display='block'; renderDrill(); window.scrollTo({top:0,behavior:'smooth'}); }
+function ocSetFocus(id){ focusId=id; deptFilter=''; const ds=document.getElementById('oc-dept'); if(ds) ds.value=''; document.getElementById('oc-search').value=''; document.getElementById('oc-searchResults').style.display='none'; document.getElementById('oc-drillView').style.display='block'; renderDrill(); window.scrollTo({top:0,behavior:'smooth'}); }
 function ocSetMode(m){ viewMode=m; document.getElementById('oc-modeCards').classList.toggle('active',m==='cards'); document.getElementById('oc-modeChart').classList.toggle('active',m==='chart'); document.getElementById('oc-cardsView').style.display=m==='cards'?'block':'none'; document.getElementById('oc-chartView').style.display=m==='chart'?'block':'none'; renderDrill(); }
 
 function renderDrill(){
+  if(deptFilter){
+    document.getElementById('oc-breadcrumb').innerHTML=`<span class="oc-crumb" onclick="ocSetFocus(null)">${ocT('องค์กร','Organization')}</span><span class="oc-sep">›</span><span class="oc-crumb current">${esc(deptFilter)}</span>`;
+    renderCards(null); return;
+  }
   const focus=focusId?byId.get(focusId):null;
   const cr=[`<span class="oc-crumb ${focus?'':'current'}" onclick="ocSetFocus(null)">${ocT('องค์กร','Organization')}</span>`];
   if(focus){ ancestors(focus).forEach(a=>{cr.push('<span class="oc-sep">›</span>');cr.push(`<span class="oc-crumb" onclick="ocSetFocus('${a.position_id}')">${esc(a.title)}</span>`);}); cr.push('<span class="oc-sep">›</span>'); cr.push(`<span class="oc-crumb current">${esc(focus.title)}</span>`); }
@@ -167,6 +182,13 @@ function cardInner(n,isFocus){
 }
 function renderCards(focus){
   const fb=document.getElementById('oc-focusBox'),rh=document.getElementById('oc-rhead'),rg=document.getElementById('oc-grid');
+  if(deptFilter){
+    fb.style.display='none'; fb.innerHTML='';
+    const list=[...byId.values()].filter(n=>n.department===deptFilter).sort((a,b)=>gRank(a.grade||'')-gRank(b.grade||'')||(a.title||'').localeCompare(b.title||''));
+    rh.textContent=`${esc(deptFilter)} (${list.length})`;
+    rg.innerHTML=list.map(n=>{const k=n.children.length;return `<div class="oc-card kids" onclick="ocSetFocus('${n.position_id}')">${cardInner(n,false)}${k?`<span class="oc-countbadge">▾ ${k}/${descCount(n)}</span>`:''}</div>`;}).join('')||`<div class="oc-empty">${ocT('ไม่มีตำแหน่งในแผนกนี้','No positions in this department')}</div>`;
+    return;
+  }
   let reports;
   if(focus){ fb.style.display='block'; fb.innerHTML=`<div class="oc-focuscard">${cardInner(focus,true)}<span class="oc-badge ${focus.status}">${statusLabel(focus.status)}</span></div>`; reports=focus.children; }
   else { fb.style.display='none'; fb.innerHTML=''; reports=roots; }
@@ -217,7 +239,7 @@ function ocSetLang(l){
   document.getElementById('lang-th').classList.toggle('active',l==='th');
   document.querySelectorAll('[data-en][data-th]').forEach(n=>{ n.textContent = l==='en'?n.getAttribute('data-en'):n.getAttribute('data-th'); });
   document.getElementById('oc-search').placeholder = ocT('ค้นหาชื่อตำแหน่ง/ชื่อคน...','Search position / name...');
-  if(allRows.length) renderDrill();
+  if(allRows.length){ populateDept(); renderDrill(); }
 }
 
 load();
