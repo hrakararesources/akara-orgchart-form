@@ -82,6 +82,7 @@
   #page-orgchart .ocb-cnt{font-size:10.5px;font-weight:600;color:var(--blue);background:var(--blue-lt);border-radius:6px;padding:1px 6px;white-space:nowrap;}
   #page-orgchart .oc-empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:14px;}
   #page-orgchart .oc-muted{color:var(--muted);font-size:12.5px;}
+  #page-orgchart .oc-gradehdr{font-size:12.5px;font-weight:700;color:var(--blue);margin:4px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
 </style>
 </head>
 <body>
@@ -182,11 +183,18 @@ function cardInner(n,isFocus){
 }
 function renderCards(focus){
   const fb=document.getElementById('oc-focusBox'),rh=document.getElementById('oc-rhead'),rg=document.getElementById('oc-grid');
+  rg.style.display='';
   if(deptFilter){
     fb.style.display='none'; fb.innerHTML='';
-    const list=[...byId.values()].filter(n=>n.department===deptFilter).sort((a,b)=>gRank(a.grade||'')-gRank(b.grade||'')||(a.title||'').localeCompare(b.title||''));
-    rh.textContent=`${esc(deptFilter)} (${list.length})`;
-    rg.innerHTML=list.map(n=>{const k=n.children.length;return `<div class="oc-card kids" onclick="ocSetFocus('${n.position_id}')">${cardInner(n,false)}${k?`<span class="oc-countbadge">▾ ${k}/${descCount(n)}</span>`:''}</div>`;}).join('')||`<div class="oc-empty">${ocT('ไม่มีตำแหน่งในแผนกนี้','No positions in this department')}</div>`;
+    const list=[...byId.values()].filter(n=>n.department===deptFilter);
+    rh.textContent=`${deptFilter} (${list.length})`;
+    const groups={}; list.forEach(n=>{ const g=n.grade||ocT('(ไม่ระบุ)','(N/A)'); (groups[g]=groups[g]||[]).push(n); });
+    const grades=Object.keys(groups).sort((a,b)=>gRank(a)-gRank(b));
+    rg.style.display='block';
+    rg.innerHTML=grades.map(g=>{
+      const cards=groups[g].sort((a,b)=>(a.title||'').localeCompare(b.title||'')).map(n=>{const k=n.children.length;return `<div class="oc-card kids" onclick="ocSetFocus('${n.position_id}')">${cardInner(n,false)}${k?`<span class="oc-countbadge">▾ ${k}/${descCount(n)}</span>`:''}</div>`;}).join('');
+      return `<div class="oc-gradehdr">${ocT('ระดับ','Level')} ${esc(g)} <span class="oc-muted">(${groups[g].length})</span></div><div class="oc-grid" style="margin-bottom:16px">${cards}</div>`;
+    }).join('')||`<div class="oc-empty">${ocT('ไม่มีตำแหน่งในแผนกนี้','No positions in this department')}</div>`;
     return;
   }
   let reports;
