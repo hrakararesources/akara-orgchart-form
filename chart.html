@@ -64,9 +64,9 @@
   #page-orgchart .oc-scroll{overflow:auto;padding:8px 4px 16px;max-height:calc(100vh - 220px);}
   #page-orgchart .oc-zoom{display:inline-block;}
   #page-orgchart .oc-svg{position:absolute;top:0;left:0;z-index:0;pointer-events:none;overflow:visible;}
-  #page-orgchart .oc-tnode{position:absolute;width:180px;z-index:1;}
+  #page-orgchart .oc-tnode{position:absolute;width:200px;z-index:1;}
   #page-orgchart .oc-rowlabel{position:absolute;left:0;width:48px;font-size:12px;font-weight:700;color:#fff;background:var(--blue);border-radius:6px;padding:3px 0;text-align:center;z-index:2;}
-  #page-orgchart .oc-box{width:180px;border:1px solid var(--border);border-top:3px solid var(--muted);border-radius:12px;padding:8px 10px;background:#fff;cursor:pointer;text-align:left;box-shadow:0 1px 3px rgba(20,30,60,.05);height:116px;overflow:hidden;box-sizing:border-box;}
+  #page-orgchart .oc-box{width:200px;border:1px solid var(--border);border-top:3px solid var(--muted);border-radius:12px;padding:8px 10px;background:#fff;cursor:pointer;text-align:left;box-shadow:0 1px 3px rgba(20,30,60,.05);height:132px;overflow:hidden;box-sizing:border-box;}
   #page-orgchart .oc-box:hover{border-color:var(--blue);box-shadow:0 6px 18px rgba(43,91,174,.14);}
   #page-orgchart .oc-box.filled{border-top-color:var(--green);}
   #page-orgchart .oc-box.vacant{border-top-color:var(--red);}
@@ -215,7 +215,7 @@ function renderChart(focus){
   const rowOf={}; present.forEach((g,i)=>rowOf[g]=i);
   const X=new Map(); let nx=0;
   (function po(n,d){ const kids=d<MAXD?n.children:[]; if(!kids.length){X.set(n.position_id,nx++);} else { kids.forEach(c=>po(c,d+1)); const xs=kids.map(c=>X.get(c.position_id)); X.set(n.position_id,(Math.min(...xs)+Math.max(...xs))/2);} })(root,0);
-  const SLOT=196,ROWH=150,LABELW=8,BW=180,BH=116,PADT=10;
+  const SLOT=218,ROWH=188,LABELW=8,BW=200,BH=132,PADT=10;
   const maxX=Math.max(0,...X.values());
   const W=LABELW+(maxX+1)*SLOT, H=PADT+present.length*ROWH;
   const xpx=pid=>LABELW+X.get(pid)*SLOT, ytop=g=>PADT+rowOf[g]*ROWH;
