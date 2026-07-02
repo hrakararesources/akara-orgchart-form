@@ -143,7 +143,7 @@ async function apiGet(path){ const r=await fetch(URL+'/rest/v1/'+path,{headers:{
 
 let lang=(function(){ try{ return localStorage.getItem('ak_oc_lang')||'en'; }catch(e){ return 'en'; } })();  // จำภาษาล่าสุด (ครั้งแรก = EN)
 let allRows=[], byId=new Map(), roots=[], focusId=null, viewMode='cards', chartZoom=1, chartDepth=2, deptFilter='', treeLayout='grade';
-function ocToggleLayout(){ treeLayout = treeLayout==='grade' ? 'depth' : 'grade'; renderDrill(); }
+function ocToggleLayout(){ treeLayout = treeLayout==='grade' ? 'vertical' : 'grade'; renderDrill(); }
 const OC_GRADES=['CEO','M4','M3','M2','M1 Senior','M1','S3','S2','S1','O3','O2','O1'];
 const AV=['#2B5BAE','#1a6e5a','#8e3d8e','#c0562a','#1a7a7a','#a04a1a','#2c6b2f','#7a3b6e'];
 
@@ -226,6 +226,24 @@ function renderCards(focus){
   rg.innerHTML=reports.map(n=>{const k=n.children.length;return `<div class="oc-card ${k?'kids':''}" ${k?`onclick="ocSetFocus('${n.position_id}')"`:''}>${cardInner(n,false)}${k?`<span class="oc-countbadge">▾ ${k}/${descCount(n)}</span>`:''}</div>`;}).join('')||`<div class="oc-empty">${ocT('ไม่มีผู้ใต้บังคับบัญชา','No subordinates')}</div>`;
 }
 function chartBox(n){ const nm=ocNm(n); const k=n.children.length; return `<div class="oc-box ${n.status}" onclick="ocSetFocus('${n.position_id}')"><div class="ocb-head">${avatar(n)}<div class="ocb-info"><div class="ocb-name ${nm?'':'vac'}">${esc(nm||ocT('ตำแหน่งว่าง','Vacant'))}</div></div></div><div class="ocb-title2">${esc(n.title)}</div><div class="ocb-foot"><span class="ocb-level">${n.grade?ocT('ระดับ','Level')+' '+esc(n.grade):'—'}</span><span class="oc-badge ${n.status}">${statusLabel(n.status)}</span>${k?`<span class="ocb-cnt">▾ ${k}/${descCount(n)}</span>`:''}</div></div>`; }
+function ocZoombarHtml(){
+  const lbl = treeLayout==='vertical' ? ocT('≣ แนวตั้ง','≣ Vertical') : ocT('↕ ตามเกรด','↕ By grade');
+  return `<div class="oc-zoombar"><button class="oc-btn" onclick="ocDepthBy(-1)">− ${ocT('ชั้น','level')}</button><span class="oc-muted" id="oc-depth" style="min-width:54px;text-align:center">${ocT('ชั้น','Levels')} ${chartDepth}</span><button class="oc-btn" onclick="ocDepthBy(1)">+ ${ocT('ชั้น','level')}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocToggleLayout()" title="${ocT('สลับการจัดวาง','Toggle layout')}">${lbl}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocZoomBy(-0.1)">−</button><span class="oc-muted" id="oc-zoomPct" style="min-width:44px;text-align:center">100%</span><button class="oc-btn" onclick="ocZoomBy(0.1)">+</button><button class="oc-btn" onclick="ocZoomFit()">${ocT('พอดีหน้าจอ','Fit')}</button></div>`;
+}
+// เลย์เอาต์แนวตั้ง: ลูกน้องเรียงเป็นคอลัมน์ใต้หัวหน้า (indent ตามชั้น) — แคบ ยาวลงมา ไม่กางออกข้าง
+function ocRenderVertical(cv, root, MAXD){
+  const IND=46, ROW=150, BW=200, BH=132, PAD=8;
+  const items=[]; let y=PAD;
+  (function place(n,depth){ items.push({n,x:PAD+depth*IND,y,depth}); y+=ROW; if(depth<MAXD) n.children.forEach(c=>place(c,depth+1)); })(root,0);
+  const W=Math.max(...items.map(it=>it.x))+BW+PAD, H=y+PAD;
+  const posById=new Map(items.map(it=>[it.n.position_id,it]));
+  const boxes=items.map(it=>`<div class="oc-tnode" style="left:${it.x}px;top:${it.y}px">${chartBox(it.n)}</div>`).join('');
+  let paths='';
+  items.forEach(it=>{ if(it.n===root) return; const p=posById.get(it.n.reports_to_position_id); if(!p) return;
+    const spineX=p.x+18, startY=p.y+BH, cy=it.y+BH/2, lx=it.x;
+    paths+=`<path d="M${spineX} ${startY} V${cy} H${lx}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`; });
+  cv.innerHTML=`${ocZoombarHtml()}<div class="oc-scroll" id="oc-ocScroll"><div class="oc-zoom" id="oc-ocZoom" style="position:relative;width:${W}px;height:${H}px"><svg class="oc-svg" width="${W}" height="${H}">${paths}</svg>${boxes}</div></div>`;
+}
 function renderChart(focus){
   const cv=document.getElementById('oc-chartView');
   const root=focus||(roots.length===1?roots[0]:null);
@@ -233,6 +251,7 @@ function renderChart(focus){
   const MAXD=chartDepth;
   const nodes=[]; const depthOf=new Map();
   (function rec(n,d){ nodes.push(n); depthOf.set(n.position_id,d); if(d<MAXD) n.children.forEach(c=>rec(c,d+1)); })(root,0);
+  if(treeLayout==='vertical'){ ocRenderVertical(cv, root, MAXD); requestAnimationFrame(ocZoomFit); return; }
   const gk=n=>n.grade||'(N/A)';
   const present=[...new Set(nodes.map(gk))].sort((a,b)=>gRank(a==='(N/A)'?'zz':a)-gRank(b==='(N/A)'?'zz':b));
   const rowOf={}; present.forEach((g,i)=>rowOf[g]=i);
@@ -249,7 +268,7 @@ function renderChart(focus){
   const boxes=nodes.map(n=>`<div class="oc-tnode" style="left:${xpx(n.position_id)}px;top:${ytop(n)}px">${chartBox(n)}</div>`).join('');
   let paths='';
   nodes.forEach(n=>{ if(n===root) return; const p=byId.get(n.reports_to_position_id); if(!p||!X.has(p.position_id)) return; const cx=xpx(n.position_id)+BW/2,ct=ytop(n),px=xpx(p.position_id)+BW/2,pb=ytop(p)+BH,bus=pb+18; paths+=`<path d="M${px} ${pb} V${bus} H${cx} V${ct}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`; });
-  cv.innerHTML=`<div class="oc-zoombar"><button class="oc-btn" onclick="ocDepthBy(-1)">− ${ocT('ชั้น','level')}</button><span class="oc-muted" id="oc-depth" style="min-width:54px;text-align:center">${ocT('ชั้น','Levels')} ${chartDepth}</span><button class="oc-btn" onclick="ocDepthBy(1)">+ ${ocT('ชั้น','level')}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocToggleLayout()" title="${ocT('สลับการจัดวาง','Toggle layout')}">${treeLayout==='depth'?ocT('↕ ตามสายงาน','↕ By hierarchy'):ocT('↕ ตามเกรด','↕ By grade')}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocZoomBy(-0.1)">−</button><span class="oc-muted" id="oc-zoomPct" style="min-width:44px;text-align:center">100%</span><button class="oc-btn" onclick="ocZoomBy(0.1)">+</button><button class="oc-btn" onclick="ocZoomFit()">${ocT('พอดีหน้าจอ','Fit')}</button></div><div class="oc-scroll" id="oc-ocScroll"><div class="oc-zoom" id="oc-ocZoom" style="position:relative;width:${W}px;height:${H}px"><svg class="oc-svg" width="${W}" height="${H}">${paths}</svg>${labels}${boxes}</div></div>`;
+  cv.innerHTML=`${ocZoombarHtml()}<div class="oc-scroll" id="oc-ocScroll"><div class="oc-zoom" id="oc-ocZoom" style="position:relative;width:${W}px;height:${H}px"><svg class="oc-svg" width="${W}" height="${H}">${paths}</svg>${labels}${boxes}</div></div>`;
   requestAnimationFrame(ocZoomFit);
 }
 function ocDepthBy(d){ chartDepth=Math.min(6,Math.max(1,chartDepth+d)); renderDrill(); }
