@@ -272,38 +272,54 @@ function ocSetLang(l){
   if(allRows.length){ populateDept(); renderDrill(); }
 }
 
-// พิมพ์/บันทึก PDF — แสดงผังทั้งหมด (ปลดกรอบเลื่อน) เลือกขนาดกระดาษได้
+// พิมพ์/บันทึก PDF — เปิดหน้าต่างใหม่เฉพาะผัง (คุมขนาด/สเกลเอง ไม่ติด CSS/zoom ของจอ)
 const OC_PAPER={ a4:[297,210], a3:[420,297], a2:[594,420], a1:[841,594] };  // แนวนอน (มม.)
 function ocPrint(){
-  const focus = focusId?byId.get(focusId):null;
-  const scope = deptFilter || (focus?focus.title:ocT('ทั้งองค์กร','Whole organization'));
-  document.getElementById('oc-print-title').textContent = ocT('ผังองค์กร','Organization Chart')+' — '+scope+'  ('+new Date().toLocaleDateString(lang==='en'?'en-GB':'th-TH')+')';
   const paper=(document.getElementById('oc-paper')||{}).value||'fit';
-  const z=document.getElementById('oc-ocZoom');   // มีเฉพาะโหมดแผนภูมิเส้น
-  const M=6, titleMM=14; let pageW=0,pageH=0,scale=1, prevZoom=null;
-  if(z){
-    prevZoom=z.style.zoom;
-    z.style.zoom=1;                                   // วัดขนาดจริงที่ยังไม่ซูม
-    const natW=z.scrollWidth||1, natH=z.scrollHeight||1;
-    if(paper==='fit'){
-      // หน้ากระดาษเท่าผังพอดี → ไม่เหลือที่ว่าง
-      const cap=6000; scale=Math.min(1, cap/Math.max(natW,natH));
-      const toMM=px=>Math.ceil(px*scale/96*25.4);
-      pageW=toMM(natW)+2*M; pageH=toMM(natH)+titleMM+2*M;
-    } else {
-      // ย่อ/ขยายผังให้พอดีกระดาษมาตรฐานที่เลือก
-      [pageW,pageH]=OC_PAPER[paper];
-      const availW=(pageW-2*M)/25.4*96, availH=(pageH-2*M-titleMM)/25.4*96;
-      scale=Math.min(availW/natW, availH/natH);
-    }
-    z.style.zoom=scale;                               // ตั้ง inline (ทับซูมของจอ) → พิมพ์พอดีกระดาษจริง
-  } else if(paper!=='fit'){ [pageW,pageH]=OC_PAPER[paper]; }
-  const css = pageW ? `@page{ size:${pageW}mm ${pageH}mm; margin:${M}mm; }` : `@page{ size:landscape; margin:${M}mm; }`;
-  const st=document.createElement('style'); st.id='oc-print-page'; st.textContent=`@media print{ ${css} }`;
-  document.head.appendChild(st);
-  const cleanup=()=>{ const s=document.getElementById('oc-print-page'); if(s) s.remove(); if(z) z.style.zoom=prevZoom; };
-  window.addEventListener('afterprint', function h(){ cleanup(); window.removeEventListener('afterprint',h); });
-  setTimeout(()=>window.print(), 150);
+  if(viewMode!=='chart'){ ocSetMode('chart'); }        // พิมพ์จากโหมดแผนภูมิเส้น
+  const z=document.getElementById('oc-ocZoom');
+  if(!z){ setTimeout(ocPrint, 300); return; }           // รอ render เสร็จ
+  // ขนาดจริงของผัง (จาก inline style ที่ renderChart ตั้งไว้ — ไม่โดน zoom ของจอกวน)
+  const natW=Math.ceil(parseFloat(z.style.width)||z.scrollWidth||1);
+  const natH=Math.ceil(parseFloat(z.style.height)||z.scrollHeight||1);
+  const M=6, titleMM=14; let pageW,pageH,scale;
+  if(paper==='fit'){
+    const cap=6000; scale=Math.min(1, cap/Math.max(natW,natH));
+    const toMM=px=>Math.ceil(px*scale/96*25.4);
+    pageW=toMM(natW)+2*M; pageH=toMM(natH)+titleMM+2*M;
+  } else {
+    [pageW,pageH]=OC_PAPER[paper];
+    const availW=(pageW-2*M)/25.4*96, availH=(pageH-2*M-titleMM)/25.4*96;
+    scale=Math.min(availW/natW, availH/natH);
+  }
+  const sw=Math.ceil(natW*scale), sh=Math.ceil(natH*scale);
+  const focus=focusId?byId.get(focusId):null;
+  const scope=deptFilter||(focus?focus.title:ocT('ทั้งองค์กร','Whole organization'));
+  const title=(ocT('ผังองค์กร','Organization Chart')+' — '+scope+'  ('+new Date().toLocaleDateString(lang==='en'?'en-GB':'th-TH')+')').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const baseCss=(document.querySelector('style')||{}).textContent||'';
+  const html='<!DOCTYPE html><html><head><meta charset="utf-8">'
+    +'<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">'
+    +'<style>'+baseCss+'</style>'
+    +'<style>'
+    +'@page{ size:'+pageW+'mm '+pageH+'mm; margin:'+M+'mm; }'
+    +'html,body{ margin:0; padding:0; background:#fff; font-family:\'IBM Plex Sans Thai\',\'IBM Plex Sans\',sans-serif; }'
+    +'#page-orgchart .oc-scroll{ max-height:none!important; overflow:visible!important; padding:0!important; }'
+    +'#page-orgchart .oc-zoom{ display:block!important; }'
+    +'.pt-title{ font-size:15px; font-weight:700; color:#1B4BA8; margin:0 0 8px; }'
+    +'.pt-clip{ width:'+sw+'px; height:'+sh+'px; overflow:hidden; }'
+    +'.pt-scale{ transform-origin:top left; transform:scale('+scale.toFixed(4)+'); }'
+    +'</style></head><body>'
+    +'<div class="pt-title">'+title+'</div>'
+    +'<div class="pt-clip"><div class="pt-scale"><div id="page-orgchart"><div class="oc-scroll">'
+    +'<div class="oc-zoom" style="position:relative;width:'+natW+'px;height:'+natH+'px">'+z.innerHTML+'</div>'
+    +'</div></div></div></div></body></html>';
+  const w=window.open('','_blank');
+  if(!w){ alert(ocT('เบราว์เซอร์บล็อกป๊อปอัป กรุณาอนุญาต popup แล้วลองใหม่','Popup blocked — please allow popups and retry')); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+  let done=false;
+  const go=()=>{ if(done)return; done=true; try{ w.focus(); w.print(); }catch(e){} setTimeout(()=>{ try{ w.close(); }catch(e){} }, 500); };
+  w.onload=()=>setTimeout(go, 400);
+  setTimeout(()=>{ if(!done && w && !w.closed) go(); }, 1200);  // เผื่อ onload ไม่ยิง
 }
 
 ocSetLang(lang);  // ใช้ภาษาที่จำไว้ (ครั้งแรก = EN) + ตั้งป้ายข้อความ
