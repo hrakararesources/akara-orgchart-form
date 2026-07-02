@@ -122,7 +122,7 @@ const URL='https://allwoertbjgyfqnqgetu.supabase.co';
 const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsbHdvZXJ0YmpneWZxbnFnZXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4OTc4NzgsImV4cCI6MjA5NzQ3Mzg3OH0.kpzH27gZyBeBE7K132wYdlDVjZhCN2uNBTa8XWrUOBc';
 async function apiGet(path){ const r=await fetch(URL+'/rest/v1/'+path,{headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Accept-Profile':'orgchart'}}); if(!r.ok) throw new Error(await r.text()); return r.json(); }
 
-let lang='en';  // default = อังกฤษ (สลับเป็น TH ได้)
+let lang=(function(){ try{ return localStorage.getItem('ak_oc_lang')||'en'; }catch(e){ return 'en'; } })();  // จำภาษาล่าสุด (ครั้งแรก = EN)
 let allRows=[], byId=new Map(), roots=[], focusId=null, viewMode='cards', chartZoom=1, chartDepth=2, deptFilter='';
 const OC_GRADES=['CEO','M4','M3','M2','M1 Senior','M1','S3','S2','S1','O3','O2','O1'];
 const AV=['#2B5BAE','#1a6e5a','#8e3d8e','#c0562a','#1a7a7a','#a04a1a','#2c6b2f','#7a3b6e'];
@@ -245,6 +245,7 @@ document.getElementById('oc-search').addEventListener('input', renderSearch);
 
 function ocSetLang(l){
   lang=l;
+  try{ localStorage.setItem('ak_oc_lang', l); }catch(e){}  // จำภาษาที่เลือกล่าสุด
   document.getElementById('lang-en').classList.toggle('active',l==='en');
   document.getElementById('lang-th').classList.toggle('active',l==='th');
   document.querySelectorAll('[data-en][data-th]').forEach(n=>{ n.textContent = l==='en'?n.getAttribute('data-en'):n.getAttribute('data-th'); });
@@ -252,7 +253,7 @@ function ocSetLang(l){
   if(allRows.length){ populateDept(); renderDrill(); }
 }
 
-ocSetLang('en');  // ตั้งภาษาเริ่มต้น + ป้ายข้อความ EN
+ocSetLang(lang);  // ใช้ภาษาที่จำไว้ (ครั้งแรก = EN) + ตั้งป้ายข้อความ
 load();
 </script>
 </body>
