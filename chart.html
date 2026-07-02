@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -89,7 +89,7 @@
 <div class="topbar">
   <img src="logo.jpg" alt="Akara">
   <div><div class="t">AKARA RESOURCES</div><div class="s" data-en="Organization Chart" data-th="ผังองค์กร">ผังองค์กร</div></div>
-  <div class="lang"><button id="lang-en" onclick="ocSetLang('en')">EN</button><button id="lang-th" class="active" onclick="ocSetLang('th')">TH</button></div>
+  <div class="lang"><button id="lang-en" class="active" onclick="ocSetLang('en')">EN</button><button id="lang-th" onclick="ocSetLang('th')">TH</button></div>
 </div>
 
 <div class="wrap">
@@ -122,7 +122,7 @@ const URL='https://allwoertbjgyfqnqgetu.supabase.co';
 const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsbHdvZXJ0YmpneWZxbnFnZXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4OTc4NzgsImV4cCI6MjA5NzQ3Mzg3OH0.kpzH27gZyBeBE7K132wYdlDVjZhCN2uNBTa8XWrUOBc';
 async function apiGet(path){ const r=await fetch(URL+'/rest/v1/'+path,{headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Accept-Profile':'orgchart'}}); if(!r.ok) throw new Error(await r.text()); return r.json(); }
 
-let lang='th';
+let lang='en';  // default = อังกฤษ (สลับเป็น TH ได้)
 let allRows=[], byId=new Map(), roots=[], focusId=null, viewMode='cards', chartZoom=1, chartDepth=2, deptFilter='';
 const OC_GRADES=['CEO','M4','M3','M2','M1 Senior','M1','S3','S2','S1','O3','O2','O1'];
 const AV=['#2B5BAE','#1a6e5a','#8e3d8e','#c0562a','#1a7a7a','#a04a1a','#2c6b2f','#7a3b6e'];
@@ -252,6 +252,7 @@ function ocSetLang(l){
   if(allRows.length){ populateDept(); renderDrill(); }
 }
 
+ocSetLang('en');  // ตั้งภาษาเริ่มต้น + ป้ายข้อความ EN
 load();
 </script>
 </body>
