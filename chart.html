@@ -115,6 +115,10 @@
       </div>
       <button class="oc-btn" onclick="ocSetFocus(null)" data-en="▲ Top" data-th="▲ บนสุด">▲ บนสุด</button>
       <select id="oc-dept" onchange="ocDeptChange()" style="padding:9px 11px;font-size:14px;border:1px solid var(--border);border-radius:8px;font-family:inherit;min-width:200px"><option value="">— ทุกแผนก —</option></select>
+      <select id="oc-paper" title="ขนาดกระดาษ" style="padding:9px 11px;font-size:14px;border:1px solid var(--border);border-radius:8px;font-family:inherit">
+        <option value="fit" data-en="Fit to chart" data-th="พอดีผัง">พอดีผัง</option>
+        <option value="a4">A4</option><option value="a3">A3</option><option value="a2">A2</option><option value="a1">A1</option>
+      </select>
       <button class="oc-btn" onclick="ocPrint()" data-en="🖨️ Print / PDF" data-th="🖨️ พิมพ์ / PDF">🖨️ พิมพ์ / PDF</button>
     </div>
     <div class="oc-print-title" id="oc-print-title"></div>
@@ -268,25 +272,34 @@ function ocSetLang(l){
   if(allRows.length){ populateDept(); renderDrill(); }
 }
 
-// พิมพ์/บันทึก PDF — แสดงผังทั้งหมด (ปลดกรอบเลื่อน + ย่อให้พอดีความกว้างหน้ากระดาษ)
+// พิมพ์/บันทึก PDF — แสดงผังทั้งหมด (ปลดกรอบเลื่อน) เลือกขนาดกระดาษได้
+const OC_PAPER={ a4:[297,210], a3:[420,297], a2:[594,420], a1:[841,594] };  // แนวนอน (มม.)
 function ocPrint(){
   const focus = focusId?byId.get(focusId):null;
   const scope = deptFilter || (focus?focus.title:ocT('ทั้งองค์กร','Whole organization'));
   document.getElementById('oc-print-title').textContent = ocT('ผังองค์กร','Organization Chart')+' — '+scope+'  ('+new Date().toLocaleDateString(lang==='en'?'en-GB':'th-TH')+')';
+  const paper=(document.getElementById('oc-paper')||{}).value||'fit';
   const z=document.getElementById('oc-ocZoom');   // มีเฉพาะโหมดแผนภูมิเส้น
-  let cleanup=()=>{};
+  const M=6, titleMM=12; let pageW=0,pageH=0,scale=1;
   if(z){
-    // ตั้งขนาดหน้ากระดาษ (PDF) ให้เท่าผังพอดี → ไม่เหลือที่ว่าง
     const natW=z.scrollWidth||1, natH=z.scrollHeight||1;
-    const cap=6000; const scale=Math.min(1, cap/Math.max(natW,natH));  // กันหน้าใหญ่เกินไป
-    const toMM=px=>Math.ceil(px*scale/96*25.4);
-    const M=6, titleMM=12;
-    const pageW=toMM(natW)+2*M, pageH=toMM(natH)+titleMM+2*M;
-    const st=document.createElement('style'); st.id='oc-print-page';
-    st.textContent=`@media print{ @page{ size:${pageW}mm ${pageH}mm; margin:${M}mm; } #oc-ocZoom{ zoom:${scale.toFixed(3)}; } }`;
-    document.head.appendChild(st);
-    cleanup=()=>{ const s=document.getElementById('oc-print-page'); if(s) s.remove(); };
-  }
+    if(paper==='fit'){
+      // หน้ากระดาษเท่าผังพอดี → ไม่เหลือที่ว่าง
+      const cap=6000; scale=Math.min(1, cap/Math.max(natW,natH));
+      const toMM=px=>Math.ceil(px*scale/96*25.4);
+      pageW=toMM(natW)+2*M; pageH=toMM(natH)+titleMM+2*M;
+    } else {
+      // ย่อ/ขยายผังให้พอดีกระดาษมาตรฐานที่เลือก
+      [pageW,pageH]=OC_PAPER[paper];
+      const availW=(pageW-2*M)/25.4*96, availH=(pageH-2*M-titleMM)/25.4*96;
+      scale=Math.min(availW/natW, availH/natH);
+    }
+  } else if(paper!=='fit'){ [pageW,pageH]=OC_PAPER[paper]; }
+  let css = pageW ? `@page{ size:${pageW}mm ${pageH}mm; margin:${M}mm; } ` : `@page{ size:landscape; margin:${M}mm; } `;
+  if(z) css += `#oc-ocZoom{ zoom:${scale.toFixed(3)}; } `;
+  const st=document.createElement('style'); st.id='oc-print-page'; st.textContent=`@media print{ ${css} }`;
+  document.head.appendChild(st);
+  const cleanup=()=>{ const s=document.getElementById('oc-print-page'); if(s) s.remove(); };
   window.addEventListener('afterprint', function h(){ cleanup(); window.removeEventListener('afterprint',h); });
   setTimeout(()=>window.print(), 120);
 }
