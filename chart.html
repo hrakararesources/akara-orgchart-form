@@ -142,7 +142,8 @@ const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 async function apiGet(path){ const r=await fetch(URL+'/rest/v1/'+path,{headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Accept-Profile':'orgchart'}}); if(!r.ok) throw new Error(await r.text()); return r.json(); }
 
 let lang=(function(){ try{ return localStorage.getItem('ak_oc_lang')||'en'; }catch(e){ return 'en'; } })();  // จำภาษาล่าสุด (ครั้งแรก = EN)
-let allRows=[], byId=new Map(), roots=[], focusId=null, viewMode='cards', chartZoom=1, chartDepth=2, deptFilter='';
+let allRows=[], byId=new Map(), roots=[], focusId=null, viewMode='cards', chartZoom=1, chartDepth=2, deptFilter='', treeLayout='grade';
+function ocToggleLayout(){ treeLayout = treeLayout==='grade' ? 'depth' : 'grade'; renderDrill(); }
 const OC_GRADES=['CEO','M4','M3','M2','M1 Senior','M1','S3','S2','S1','O3','O2','O1'];
 const AV=['#2B5BAE','#1a6e5a','#8e3d8e','#c0562a','#1a7a7a','#a04a1a','#2c6b2f','#7a3b6e'];
 
@@ -230,21 +231,25 @@ function renderChart(focus){
   const root=focus||(roots.length===1?roots[0]:null);
   if(!root){ cv.innerHTML=`<div class="oc-empty">${ocT('ไม่มีข้อมูล','No data')}</div>`; return; }
   const MAXD=chartDepth;
-  const nodes=[]; (function rec(n,d){ nodes.push(n); if(d<MAXD) n.children.forEach(c=>rec(c,d+1)); })(root,0);
+  const nodes=[]; const depthOf=new Map();
+  (function rec(n,d){ nodes.push(n); depthOf.set(n.position_id,d); if(d<MAXD) n.children.forEach(c=>rec(c,d+1)); })(root,0);
   const gk=n=>n.grade||'(N/A)';
   const present=[...new Set(nodes.map(gk))].sort((a,b)=>gRank(a==='(N/A)'?'zz':a)-gRank(b==='(N/A)'?'zz':b));
   const rowOf={}; present.forEach((g,i)=>rowOf[g]=i);
   const X=new Map(); let nx=0;
   (function po(n,d){ const kids=d<MAXD?n.children:[]; if(!kids.length){X.set(n.position_id,nx++);} else { kids.forEach(c=>po(c,d+1)); const xs=kids.map(c=>X.get(c.position_id)); X.set(n.position_id,(Math.min(...xs)+Math.max(...xs))/2);} })(root,0);
   const SLOT=218,ROWH=188,LABELW=8,BW=200,BH=132,PADT=10;
+  // แถว: 'grade'=ตามเกรด (คนเกรดเดียวกันแถวเดียว) | 'depth'=ตามสายงาน (ลูกอยู่ใต้หัวหน้าโดยตรง ขาสั้น)
+  const rowIndex = n => treeLayout==='depth' ? depthOf.get(n.position_id) : rowOf[gk(n)];
+  const rowCount = treeLayout==='depth' ? (Math.max(0,...nodes.map(n=>depthOf.get(n.position_id)))+1) : present.length;
   const maxX=Math.max(0,...X.values());
-  const W=LABELW+(maxX+1)*SLOT, H=PADT+present.length*ROWH;
-  const xpx=pid=>LABELW+X.get(pid)*SLOT, ytop=g=>PADT+rowOf[g]*ROWH;
+  const W=LABELW+(maxX+1)*SLOT, H=PADT+rowCount*ROWH;
+  const xpx=pid=>LABELW+X.get(pid)*SLOT, ytop=n=>PADT+rowIndex(n)*ROWH;
   const labels='';
-  const boxes=nodes.map(n=>`<div class="oc-tnode" style="left:${xpx(n.position_id)}px;top:${ytop(gk(n))}px">${chartBox(n)}</div>`).join('');
+  const boxes=nodes.map(n=>`<div class="oc-tnode" style="left:${xpx(n.position_id)}px;top:${ytop(n)}px">${chartBox(n)}</div>`).join('');
   let paths='';
-  nodes.forEach(n=>{ if(n===root) return; const p=byId.get(n.reports_to_position_id); if(!p||!X.has(p.position_id)) return; const cx=xpx(n.position_id)+BW/2,ct=ytop(gk(n)),px=xpx(p.position_id)+BW/2,pb=ytop(gk(p))+BH,bus=pb+18; paths+=`<path d="M${px} ${pb} V${bus} H${cx} V${ct}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`; });
-  cv.innerHTML=`<div class="oc-zoombar"><button class="oc-btn" onclick="ocDepthBy(-1)">− ${ocT('ชั้น','level')}</button><span class="oc-muted" id="oc-depth" style="min-width:54px;text-align:center">${ocT('ชั้น','Levels')} ${chartDepth}</span><button class="oc-btn" onclick="ocDepthBy(1)">+ ${ocT('ชั้น','level')}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocZoomBy(-0.1)">−</button><span class="oc-muted" id="oc-zoomPct" style="min-width:44px;text-align:center">100%</span><button class="oc-btn" onclick="ocZoomBy(0.1)">+</button><button class="oc-btn" onclick="ocZoomFit()">${ocT('พอดีหน้าจอ','Fit')}</button></div><div class="oc-scroll" id="oc-ocScroll"><div class="oc-zoom" id="oc-ocZoom" style="position:relative;width:${W}px;height:${H}px"><svg class="oc-svg" width="${W}" height="${H}">${paths}</svg>${labels}${boxes}</div></div>`;
+  nodes.forEach(n=>{ if(n===root) return; const p=byId.get(n.reports_to_position_id); if(!p||!X.has(p.position_id)) return; const cx=xpx(n.position_id)+BW/2,ct=ytop(n),px=xpx(p.position_id)+BW/2,pb=ytop(p)+BH,bus=pb+18; paths+=`<path d="M${px} ${pb} V${bus} H${cx} V${ct}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`; });
+  cv.innerHTML=`<div class="oc-zoombar"><button class="oc-btn" onclick="ocDepthBy(-1)">− ${ocT('ชั้น','level')}</button><span class="oc-muted" id="oc-depth" style="min-width:54px;text-align:center">${ocT('ชั้น','Levels')} ${chartDepth}</span><button class="oc-btn" onclick="ocDepthBy(1)">+ ${ocT('ชั้น','level')}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocToggleLayout()" title="${ocT('สลับการจัดวาง','Toggle layout')}">${treeLayout==='depth'?ocT('↕ ตามสายงาน','↕ By hierarchy'):ocT('↕ ตามเกรด','↕ By grade')}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocZoomBy(-0.1)">−</button><span class="oc-muted" id="oc-zoomPct" style="min-width:44px;text-align:center">100%</span><button class="oc-btn" onclick="ocZoomBy(0.1)">+</button><button class="oc-btn" onclick="ocZoomFit()">${ocT('พอดีหน้าจอ','Fit')}</button></div><div class="oc-scroll" id="oc-ocScroll"><div class="oc-zoom" id="oc-ocZoom" style="position:relative;width:${W}px;height:${H}px"><svg class="oc-svg" width="${W}" height="${H}">${paths}</svg>${labels}${boxes}</div></div>`;
   requestAnimationFrame(ocZoomFit);
 }
 function ocDepthBy(d){ chartDepth=Math.min(6,Math.max(1,chartDepth+d)); renderDrill(); }
