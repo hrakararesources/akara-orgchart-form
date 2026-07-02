@@ -132,11 +132,13 @@ function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').r
 function statusLabel(s){ return {filled:'Filled',vacant:'Vacant',filled_pending_name:'Pending',unknown:'Unknown'}[s]||s; }
 function gRank(g){ const i=OC_GRADES.indexOf(g); return i<0?99:i; }
 function avColor(n){ let h=0; for(const c of n) h=(h+c.charCodeAt(0))%AV.length; return AV[h]; }
-function avatar(n){ return n.incumbent?`<div class="oc-av" style="background:${avColor(n.incumbent)}">${esc(n.incumbent.trim().slice(0,2))}</div>`:`<div class="oc-av oc-av-vac">○</div>`; }
+function ocNm(n){ if(!n) return ''; return lang==='th' ? (n.incumbent_th||n.incumbent||'') : (n.incumbent||n.incumbent_th||''); }
+function ocActNm(n){ if(!n) return ''; return lang==='th' ? (n.acting_coverage_th||n.acting_coverage||'') : (n.acting_coverage||n.acting_coverage_th||''); }
+function avatar(n){ const nm=ocNm(n); return nm?`<div class="oc-av" style="background:${avColor(n.incumbent||nm)}">${esc(nm.trim().slice(0,2))}</div>`:`<div class="oc-av oc-av-vac">○</div>`; }
 
 async function load(){
   try{
-    allRows = await apiGet('v_org_chart_current?select=position_id,division,department,grade,title,incumbent,status,acting_coverage,reports_to_position_id,reports_to_title,is_active&is_active=eq.true');
+    allRows = await apiGet('v_org_chart_current?select=position_id,division,department,grade,title,incumbent,status,acting_coverage,reports_to_position_id,reports_to_title,is_active,incumbent_th,acting_coverage_th,reports_to_incumbent_th&is_active=eq.true');
   }catch(e){ document.getElementById('oc-drillView').innerHTML=`<div class="oc-empty">${ocT('โหลดข้อมูลไม่สำเร็จ','Failed to load')}: ${esc(e.message)}</div>`; return; }
   buildIndex();
   populateDept();
@@ -177,9 +179,9 @@ function renderDrill(){
   if(viewMode==='chart') renderChart(focus); else renderCards(focus);
 }
 function cardInner(n,isFocus){
-  const vac=!n.incumbent;
-  const third=n.acting_coverage?`<div class="oc-cstatus">${ocT('รักษาการ','Acting')}: ${esc(n.acting_coverage)}</div>`:`<div class="oc-cdept">${esc(isFocus?(n.division+' / '+n.department):n.department)}</div>`;
-  return `${avatar(n)}<div class="oc-cinfo"><div class="oc-cn ${vac?'vac':''}">${esc(n.incumbent||ocT('ตำแหน่งว่าง','Vacant'))}</div><div class="oc-ct">${esc(n.title)}${n.grade?' · '+esc(n.grade):''}</div>${third}</div>`;
+  const nm=ocNm(n), act=ocActNm(n); const vac=!nm;
+  const third=act?`<div class="oc-cstatus">${ocT('รักษาการ','Acting')}: ${esc(act)}</div>`:`<div class="oc-cdept">${esc(isFocus?(n.division+' / '+n.department):n.department)}</div>`;
+  return `${avatar(n)}<div class="oc-cinfo"><div class="oc-cn ${vac?'vac':''}">${esc(nm||ocT('ตำแหน่งว่าง','Vacant'))}</div><div class="oc-ct">${esc(n.title)}${n.grade?' · '+esc(n.grade):''}</div>${third}</div>`;
 }
 function renderCards(focus){
   const fb=document.getElementById('oc-focusBox'),rh=document.getElementById('oc-rhead'),rg=document.getElementById('oc-grid');
@@ -203,7 +205,7 @@ function renderCards(focus){
   rh.textContent=focus?(reports.length?`${ocT('ผู้ใต้บังคับบัญชาโดยตรง','Direct reports')} (${reports.length})`:ocT('ไม่มีตำแหน่งใต้สังกัด','No subordinates')):`${ocT('ตำแหน่งระดับบนสุด','Top level')} (${reports.length})`;
   rg.innerHTML=reports.map(n=>{const k=n.children.length;return `<div class="oc-card ${k?'kids':''}" ${k?`onclick="ocSetFocus('${n.position_id}')"`:''}>${cardInner(n,false)}${k?`<span class="oc-countbadge">▾ ${k}/${descCount(n)}</span>`:''}</div>`;}).join('')||`<div class="oc-empty">${ocT('ไม่มีผู้ใต้บังคับบัญชา','No subordinates')}</div>`;
 }
-function chartBox(n){ const k=n.children.length; return `<div class="oc-box ${n.status}" onclick="ocSetFocus('${n.position_id}')"><div class="ocb-head">${avatar(n)}<div class="ocb-info"><div class="ocb-name ${n.incumbent?'':'vac'}">${esc(n.incumbent||ocT('ตำแหน่งว่าง','Vacant'))}</div></div></div><div class="ocb-title2">${esc(n.title)}</div><div class="ocb-foot"><span class="ocb-level">${n.grade?ocT('ระดับ','Level')+' '+esc(n.grade):'—'}</span><span class="oc-badge ${n.status}">${statusLabel(n.status)}</span>${k?`<span class="ocb-cnt">▾ ${k}/${descCount(n)}</span>`:''}</div></div>`; }
+function chartBox(n){ const nm=ocNm(n); const k=n.children.length; return `<div class="oc-box ${n.status}" onclick="ocSetFocus('${n.position_id}')"><div class="ocb-head">${avatar(n)}<div class="ocb-info"><div class="ocb-name ${nm?'':'vac'}">${esc(nm||ocT('ตำแหน่งว่าง','Vacant'))}</div></div></div><div class="ocb-title2">${esc(n.title)}</div><div class="ocb-foot"><span class="ocb-level">${n.grade?ocT('ระดับ','Level')+' '+esc(n.grade):'—'}</span><span class="oc-badge ${n.status}">${statusLabel(n.status)}</span>${k?`<span class="ocb-cnt">▾ ${k}/${descCount(n)}</span>`:''}</div></div>`; }
 function renderChart(focus){
   const cv=document.getElementById('oc-chartView');
   const root=focus||(roots.length===1?roots[0]:null);
@@ -235,9 +237,9 @@ function renderSearch(){
   const q=document.getElementById('oc-search').value.trim().toLowerCase();
   const sr=document.getElementById('oc-searchResults'),dv=document.getElementById('oc-drillView');
   if(q.length<1){ sr.style.display='none'; dv.style.display='block'; return; }
-  const m=allRows.filter(r=>(r.title||'').toLowerCase().includes(q)||(r.incumbent||'').toLowerCase().includes(q)).slice(0,50);
+  const m=allRows.filter(r=>(r.title||'').toLowerCase().includes(q)||(r.incumbent||'').toLowerCase().includes(q)||(r.incumbent_th||'').toLowerCase().includes(q)).slice(0,50);
   dv.style.display='none'; sr.style.display='block';
-  sr.innerHTML=m.length?m.map(r=>`<div class="it" onclick="ocSetFocus('${r.position_id}')"><div class="t">${esc(r.title)} ${r.incumbent?'— '+esc(r.incumbent):`<span class="oc-badge vacant">${ocT('ว่าง','Vacant')}</span>`}</div><div class="s">${esc(r.division)} / ${esc(r.department)}${r.grade?' · '+esc(r.grade):''}</div></div>`).join(''):`<div class="oc-empty">${ocT('ไม่พบตำแหน่งที่ตรงกับคำค้นหา','No matching positions')}</div>`;
+  sr.innerHTML=m.length?m.map(r=>{ const nm=ocNm(r); return `<div class="it" onclick="ocSetFocus('${r.position_id}')"><div class="t">${esc(r.title)} ${nm?'— '+esc(nm):`<span class="oc-badge vacant">${ocT('ว่าง','Vacant')}</span>`}</div><div class="s">${esc(r.division)} / ${esc(r.department)}${r.grade?' · '+esc(r.grade):''}</div></div>`; }).join(''):`<div class="oc-empty">${ocT('ไม่พบตำแหน่งที่ตรงกับคำค้นหา','No matching positions')}</div>`;
 }
 document.getElementById('oc-search').addEventListener('input', renderSearch);
 
