@@ -87,7 +87,7 @@
   @media print{
     @page{ size: landscape; margin: 8mm; }
     body{ background:#fff !important; }
-    .topbar, .oc-controls, .oc-sr, .oc-zoombar, .lang{ display:none !important; }
+    .topbar, .oc-controls, .oc-sr, .oc-zoombar, .lang, .oc-breadcrumb{ display:none !important; }
     .wrap{ padding:0 !important; margin:0 !important; max-width:none !important; }
     #oc-drillView{ display:block !important; }
     .oc-scroll{ overflow:visible !important; height:auto !important; max-height:none !important; border:none !important; }
@@ -274,10 +274,20 @@ function ocPrint(){
   const scope = deptFilter || (focus?focus.title:ocT('ทั้งองค์กร','Whole organization'));
   document.getElementById('oc-print-title').textContent = ocT('ผังองค์กร','Organization Chart')+' — '+scope+'  ('+new Date().toLocaleDateString(lang==='en'?'en-GB':'th-TH')+')';
   const z=document.getElementById('oc-ocZoom');   // มีเฉพาะโหมดแผนภูมิเส้น
-  let prev=null;
-  if(z){ prev=z.style.zoom; const nat=z.scrollWidth||1; const target=1040; /* ~A4 แนวนอน @96dpi */ z.style.zoom = nat>target ? +(target/nat).toFixed(3) : 1; }
-  const cleanup=()=>{ if(z) z.style.zoom=prev; window.removeEventListener('afterprint',cleanup); };
-  window.addEventListener('afterprint', cleanup);
+  let cleanup=()=>{};
+  if(z){
+    // ตั้งขนาดหน้ากระดาษ (PDF) ให้เท่าผังพอดี → ไม่เหลือที่ว่าง
+    const natW=z.scrollWidth||1, natH=z.scrollHeight||1;
+    const cap=6000; const scale=Math.min(1, cap/Math.max(natW,natH));  // กันหน้าใหญ่เกินไป
+    const toMM=px=>Math.ceil(px*scale/96*25.4);
+    const M=6, titleMM=12;
+    const pageW=toMM(natW)+2*M, pageH=toMM(natH)+titleMM+2*M;
+    const st=document.createElement('style'); st.id='oc-print-page';
+    st.textContent=`@media print{ @page{ size:${pageW}mm ${pageH}mm; margin:${M}mm; } #oc-ocZoom{ zoom:${scale.toFixed(3)}; } }`;
+    document.head.appendChild(st);
+    cleanup=()=>{ const s=document.getElementById('oc-print-page'); if(s) s.remove(); };
+  }
+  window.addEventListener('afterprint', function h(){ cleanup(); window.removeEventListener('afterprint',h); });
   setTimeout(()=>window.print(), 120);
 }
 
