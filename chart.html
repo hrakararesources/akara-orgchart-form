@@ -227,8 +227,7 @@ function renderCards(focus){
 }
 function chartBox(n){ const nm=ocNm(n); const k=n.children.length; return `<div class="oc-box ${n.status}" onclick="ocSetFocus('${n.position_id}')"><div class="ocb-head">${avatar(n)}<div class="ocb-info"><div class="ocb-name ${nm?'':'vac'}">${esc(nm||ocT('ตำแหน่งว่าง','Vacant'))}</div></div></div><div class="ocb-title2">${esc(n.title)}</div><div class="ocb-foot"><span class="ocb-level">${n.grade?ocT('ระดับ','Level')+' '+esc(n.grade):'—'}</span><span class="oc-badge ${n.status}">${statusLabel(n.status)}</span>${k?`<span class="ocb-cnt">▾ ${k}/${descCount(n)}</span>`:''}</div></div>`; }
 function ocZoombarHtml(){
-  const lbl = treeLayout==='vertical' ? ocT('≣ แนวตั้ง','≣ Vertical') : ocT('↕ ตามเกรด','↕ By grade');
-  return `<div class="oc-zoombar"><button class="oc-btn" onclick="ocDepthBy(-1)">− ${ocT('ชั้น','level')}</button><span class="oc-muted" id="oc-depth" style="min-width:54px;text-align:center">${ocT('ชั้น','Levels')} ${chartDepth}</span><button class="oc-btn" onclick="ocDepthBy(1)">+ ${ocT('ชั้น','level')}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocToggleLayout()" title="${ocT('สลับการจัดวาง','Toggle layout')}">${lbl}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocZoomBy(-0.1)">−</button><span class="oc-muted" id="oc-zoomPct" style="min-width:44px;text-align:center">100%</span><button class="oc-btn" onclick="ocZoomBy(0.1)">+</button><button class="oc-btn" onclick="ocZoomFit()">${ocT('พอดีหน้าจอ','Fit')}</button></div>`;
+  return `<div class="oc-zoombar"><button class="oc-btn" onclick="ocDepthBy(-1)">− ${ocT('ชั้น','level')}</button><span class="oc-muted" id="oc-depth" style="min-width:54px;text-align:center">${ocT('ชั้น','Levels')} ${chartDepth}</span><button class="oc-btn" onclick="ocDepthBy(1)">+ ${ocT('ชั้น','level')}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocZoomBy(-0.1)">−</button><span class="oc-muted" id="oc-zoomPct" style="min-width:44px;text-align:center">100%</span><button class="oc-btn" onclick="ocZoomBy(0.1)">+</button><button class="oc-btn" onclick="ocZoomFit()">${ocT('พอดีหน้าจอ','Fit')}</button></div>`;
 }
 // เลย์เอาต์แนวตั้ง: ลูกน้องเรียงเป็นคอลัมน์ใต้หัวหน้า (indent ตามชั้น) — แคบ ยาวลงมา ไม่กางออกข้าง
 function ocRenderVertical(cv, root, MAXD){
@@ -251,7 +250,6 @@ function renderChart(focus){
   const MAXD=chartDepth;
   const nodes=[]; const depthOf=new Map();
   (function rec(n,d){ nodes.push(n); depthOf.set(n.position_id,d); if(d<MAXD) n.children.forEach(c=>rec(c,d+1)); })(root,0);
-  if(treeLayout==='vertical'){ ocRenderVertical(cv, root, MAXD); requestAnimationFrame(ocZoomFit); return; }
   const gk=n=>n.grade||'(N/A)';
   const present=[...new Set(nodes.map(gk))].sort((a,b)=>gRank(a==='(N/A)'?'zz':a)-gRank(b==='(N/A)'?'zz':b));
   const rowOf={}; present.forEach((g,i)=>rowOf[g]=i);
