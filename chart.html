@@ -248,25 +248,51 @@ function renderChart(focus){
   const root=focus||(roots.length===1?roots[0]:null);
   if(!root){ cv.innerHTML=`<div class="oc-empty">${ocT('ไม่มีข้อมูล','No data')}</div>`; return; }
   const MAXD=chartDepth;
-  const nodes=[]; const depthOf=new Map();
-  (function rec(n,d){ nodes.push(n); depthOf.set(n.position_id,d); if(d<MAXD) n.children.forEach(c=>rec(c,d+1)); })(root,0);
-  const gk=n=>n.grade||'(N/A)';
-  const present=[...new Set(nodes.map(gk))].sort((a,b)=>gRank(a==='(N/A)'?'zz':a)-gRank(b==='(N/A)'?'zz':b));
-  const rowOf={}; present.forEach((g,i)=>rowOf[g]=i);
-  const X=new Map(); let nx=0;
-  (function po(n,d){ const kids=d<MAXD?n.children:[]; if(!kids.length){X.set(n.position_id,nx++);} else { kids.forEach(c=>po(c,d+1)); const xs=kids.map(c=>X.get(c.position_id)); X.set(n.position_id,(Math.min(...xs)+Math.max(...xs))/2);} })(root,0);
-  const SLOT=218,ROWH=188,LABELW=8,BW=200,BH=132,PADT=10;
-  // แถว: 'grade'=ตามเกรด (คนเกรดเดียวกันแถวเดียว) | 'depth'=ตามสายงาน (ลูกอยู่ใต้หัวหน้าโดยตรง ขาสั้น)
-  const rowIndex = n => treeLayout==='depth' ? depthOf.get(n.position_id) : rowOf[gk(n)];
-  const rowCount = treeLayout==='depth' ? (Math.max(0,...nodes.map(n=>depthOf.get(n.position_id)))+1) : present.length;
-  const maxX=Math.max(0,...X.values());
-  const W=LABELW+(maxX+1)*SLOT, H=PADT+rowCount*ROWH;
-  const xpx=pid=>LABELW+X.get(pid)*SLOT, ytop=n=>PADT+rowIndex(n)*ROWH;
-  const labels='';
-  const boxes=nodes.map(n=>`<div class="oc-tnode" style="left:${xpx(n.position_id)}px;top:${ytop(n)}px">${chartBox(n)}</div>`).join('');
+  const BW=200,BH=132,SLOT=218,VGAP=54,PADT=12,PADL=10;
+  const GCOLS=6,GMIN=7,GVGAP=14;   // ลูกน้อง leaf ≥ GMIN คน → พับเป็นตาราง GCOLS คอลัมน์
+  const nodes=[],depth=new Map(),grid=new Map(),grow=new Map(),xs=new Map(),width=new Map();
+  // 1) รวมโหนด + ชั้น + ตั้งธง grid (ลูกทั้งหมดเป็น leaf และจำนวนมาก)
+  (function rec(n,d){ nodes.push(n); depth.set(n.position_id,d);
+    const kids=d<MAXD?n.children:[];
+    grid.set(n.position_id, kids.length>=GMIN && kids.every(k=> d+1>=MAXD || k.children.length===0));
+    kids.forEach(c=>rec(c,d+1)); })(root,0);
+  // 2) ความกว้าง (สลอต) — grid ใช้ GCOLS สลอต
+  (function w(n){ const d=depth.get(n.position_id); const kids=d<MAXD?n.children:[];
+    if(!kids.length){ width.set(n.position_id,1); return 1; }
+    if(grid.get(n.position_id)){ const c=Math.min(GCOLS,kids.length); kids.forEach(k=>width.set(k.position_id,1)); width.set(n.position_id,c); return c; }
+    let s=0; kids.forEach(k=>s+=w(k)); s=Math.max(1,s); width.set(n.position_id,s); return s; })(root);
+  // 3) ตำแหน่ง x (สลอต)
+  (function ax(n,left){ const d=depth.get(n.position_id); const kids=d<MAXD?n.children:[];
+    if(!kids.length){ xs.set(n.position_id,left); return; }
+    if(grid.get(n.position_id)){ const c=Math.min(GCOLS,kids.length);
+      kids.forEach((k,i)=>{ xs.set(k.position_id,left+(i%c)); grow.set(k.position_id,Math.floor(i/c)); });
+      xs.set(n.position_id,left+(c-1)/2); return; }
+    let cur=left; kids.forEach(k=>{ ax(k,cur); cur+=width.get(k.position_id); });
+    const a=kids.map(k=>xs.get(k.position_id)); xs.set(n.position_id,(Math.min(...a)+Math.max(...a))/2); })(root,0);
+  // 4) ความสูงแต่ละแถว (grid ทำให้แถวลูกสูงขึ้น) + Y
+  const maxD=Math.max(...nodes.map(n=>depth.get(n.position_id)));
+  const rowH=new Array(maxD+1).fill(BH);
+  nodes.forEach(n=>{ if(grid.get(n.position_id)){ const cnt=n.children.length, c=Math.min(GCOLS,cnt), rows=Math.ceil(cnt/c); const bh=rows*BH+(rows-1)*GVGAP, cd=depth.get(n.position_id)+1; if(cd<=maxD) rowH[cd]=Math.max(rowH[cd],bh); } });
+  const rowY=new Array(maxD+1); rowY[0]=PADT; for(let d=1;d<=maxD;d++) rowY[d]=rowY[d-1]+rowH[d-1]+VGAP;
+  const yOf=n=>{ const pid=n.position_id; return grow.has(pid) ? rowY[depth.get(pid)]+grow.get(pid)*(BH+GVGAP) : rowY[depth.get(pid)]; };
+  const xpx=n=>PADL+xs.get(n.position_id)*SLOT;
+  const maxSlot=Math.max(...[...xs.values()]);
+  const W=PADL+(maxSlot+1)*SLOT+PADL, H=rowY[maxD]+rowH[maxD]+PADT;
+  const boxes=nodes.map(n=>`<div class="oc-tnode" style="left:${xpx(n)}px;top:${yOf(n)}px">${chartBox(n)}</div>`).join('');
+  // 5) เส้นเชื่อม
   let paths='';
-  nodes.forEach(n=>{ if(n===root) return; const p=byId.get(n.reports_to_position_id); if(!p||!X.has(p.position_id)) return; const cx=xpx(n.position_id)+BW/2,ct=ytop(n),px=xpx(p.position_id)+BW/2,pb=ytop(p)+BH,bus=pb+18; paths+=`<path d="M${px} ${pb} V${bus} H${cx} V${ct}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`; });
-  cv.innerHTML=`${ocZoombarHtml()}<div class="oc-scroll" id="oc-ocScroll"><div class="oc-zoom" id="oc-ocZoom" style="position:relative;width:${W}px;height:${H}px"><svg class="oc-svg" width="${W}" height="${H}">${paths}</svg>${labels}${boxes}</div></div>`;
+  nodes.forEach(n=>{ if(n===root) return; const p=byId.get(n.reports_to_position_id); if(!p||!xs.has(p.position_id)) return;
+    if(grid.get(p.position_id)&&grow.has(n.position_id)) return;  // grid วาดแยกด้านล่าง
+    const cx=xpx(n)+BW/2,ct=yOf(n),px=xpx(p)+BW/2,pb=yOf(p)+BH,bus=pb+VGAP/2;
+    paths+=`<path d="M${px} ${pb} V${bus} H${cx} V${ct}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`; });
+  nodes.forEach(P=>{ if(!grid.get(P.position_id)) return; const cnt=P.children.length, c=Math.min(GCOLS,cnt), d=depth.get(P.position_id), cd=d+1; if(cd>maxD) return;
+    const left=xs.get(P.position_id)-(c-1)/2, blockTop=rowY[cd], busY=blockTop-18, Px=xpx(P)+BW/2, Pb=yOf(P)+BH;
+    const colX=cc=>PADL+(left+cc)*SLOT+BW/2, cols0=Math.min(c,cnt);
+    paths+=`<path d="M${Px} ${Pb} V${busY}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`;
+    paths+=`<path d="M${colX(0)} ${busY} H${colX(cols0-1)}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`;
+    for(let cc=0;cc<cols0;cc++){ const lastRow=Math.floor((cnt-1-cc)/c), bottom=blockTop+lastRow*(BH+GVGAP)+BH; paths+=`<path d="M${colX(cc)} ${busY} V${bottom}" fill="none" stroke="#e0e5ee" stroke-width="1.2"/>`; }
+  });
+  cv.innerHTML=`${ocZoombarHtml()}<div class="oc-scroll" id="oc-ocScroll"><div class="oc-zoom" id="oc-ocZoom" style="position:relative;width:${W}px;height:${H}px"><svg class="oc-svg" width="${W}" height="${H}">${paths}</svg>${boxes}</div></div>`;
   requestAnimationFrame(ocZoomFit);
 }
 function ocDepthBy(d){ chartDepth=Math.min(6,Math.max(1,chartDepth+d)); renderDrill(); }
