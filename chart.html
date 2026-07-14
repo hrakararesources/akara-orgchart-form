@@ -237,19 +237,21 @@ function chartBox(n){ const nm=ocNm(n); const k=n.children.length; return `<div 
 function ocZoombarHtml(){
   return `<div class="oc-zoombar"><button class="oc-btn" onclick="ocDepthBy(-1)">− ${ocT('ชั้น','level')}</button><span class="oc-muted" id="oc-depth" style="min-width:54px;text-align:center">${ocT('ชั้น','Levels')} ${chartDepth}</span><button class="oc-btn" onclick="ocDepthBy(1)">+ ${ocT('ชั้น','level')}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocZoomBy(-0.1)">−</button><span class="oc-muted" id="oc-zoomPct" style="min-width:44px;text-align:center">100%</span><button class="oc-btn" onclick="ocZoomBy(0.1)">+</button><button class="oc-btn" onclick="ocZoomFit()">${ocT('พอดีหน้าจอ','Fit')}</button></div>`;
 }
-// เลย์เอาต์แนวตั้ง: ลูกน้องเรียงเป็นคอลัมน์ใต้หัวหน้า (indent ตามชั้น) — แคบ ยาวลงมา ไม่กางออกข้าง
-function ocRenderVertical(cv, root, MAXD){
-  const IND=46, ROW=150, BW=200, BH=132, PAD=8;
+// เลย์เอาต์แนวตั้ง: ลูกน้องเรียงเป็นคอลัมน์ใต้หัวหน้า (indent ตามชั้น) — แคบ ยาวลงมา กล่องกว้าง อ่านง่าย
+function ocRenderVertical(cv, root, MAXD, SC){
+  SC = SC || (n=>n.children);
+  const IND=44, BW=252, BH=132, ROW=BH+20, PAD=8;
   const items=[]; let y=PAD;
-  (function place(n,depth){ items.push({n,x:PAD+depth*IND,y,depth}); y+=ROW; if(depth<MAXD) n.children.forEach(c=>place(c,depth+1)); })(root,0);
-  const W=Math.max(...items.map(it=>it.x))+BW+PAD, H=y+PAD;
+  (function place(n,depth){ items.push({n,x:PAD+depth*IND,y,depth}); y+=ROW; const kids=depth<MAXD?SC(n):[]; kids.forEach(c=>place(c,depth+1)); })(root,0);
+  const W=Math.max(...items.map(it=>it.x))+BW+PAD, H=Math.max(...items.map(it=>it.y))+BH+PAD;
   const posById=new Map(items.map(it=>[it.n.position_id,it]));
-  const boxes=items.map(it=>`<div class="oc-tnode" style="left:${it.x}px;top:${it.y}px">${chartBox(it.n)}</div>`).join('');
+  const boxes=items.map(it=>`<div class="oc-tnode" style="left:${it.x}px;top:${it.y}px;width:${BW}px">${chartBox(it.n)}</div>`).join('');
   let paths='';
   items.forEach(it=>{ if(it.n===root) return; const p=posById.get(it.n.reports_to_position_id); if(!p) return;
-    const spineX=p.x+18, startY=p.y+BH, cy=it.y+BH/2, lx=it.x;
+    const spineX=p.x+20, startY=p.y+BH, cy=it.y+BH/2, lx=it.x;
     paths+=`<path d="M${spineX} ${startY} V${cy} H${lx}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`; });
   cv.innerHTML=`${ocZoombarHtml()}<div class="oc-scroll" id="oc-ocScroll"><div class="oc-zoom" id="oc-ocZoom" style="position:relative;width:${W}px;height:${H}px"><svg class="oc-svg" width="${W}" height="${H}">${paths}</svg>${boxes}</div></div>`;
+  requestAnimationFrame(ocZoomFit);
 }
 function renderChart(focus){
   const cv=document.getElementById('oc-chartView');
@@ -257,6 +259,7 @@ function renderChart(focus){
   if(!root){ cv.innerHTML=`<div class="oc-empty">${ocT('ไม่มีข้อมูล','No data')}</div>`; return; }
   const MAXD = ocScope==='mgmt' ? 99 : chartDepth;   // ระดับบริหาร: แสดงทุกชั้น CEO→M1
   const SC = n => ocScope==='mgmt' ? n.children.filter(c=>OC_MGMT.has(c.grade)) : n.children;
+  if(ocScope==='mgmt') return ocRenderVertical(cv, root, MAXD, SC);  // ผังบริหาร = เรียงลงล่าง กล่องกว้าง
   const BW=200,BH=132,SLOT=218,VGAP=54,PADT=12,PADL=10;
   const GCOLS=6,GMIN=7,GVGAP=14;   // ลูกน้อง leaf ≥ GMIN → พับเป็นตาราง GCOLS คอลัมน์ (ทำได้ทุก level แม้ลูกปนหัวหน้าย่อย)
   const nodes=[],depth=new Map(),gridC=new Map(),gridLeaves=new Map(),grow=new Map(),xs=new Map(),width=new Map();
