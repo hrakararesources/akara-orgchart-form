@@ -118,6 +118,7 @@
       <select id="oc-scope" onchange="ocScopeChange()" title="ระดับที่แสดง" style="padding:9px 11px;font-size:14px;border:1px solid var(--border);border-radius:8px;font-family:inherit">
         <option value="all" data-en="All levels" data-th="ทุกระดับ">ทุกระดับ</option>
         <option value="mgmt" data-en="Management (CEO–M1)" data-th="ระดับบริหาร (CEO–M1)">ระดับบริหาร (CEO–M1)</option>
+        <option value="heads" data-en="Executives + dept heads" data-th="ผู้บริหาร + หัวหน้าแผนก">ผู้บริหาร + หัวหน้าแผนก</option>
       </select>
       <select id="oc-paper" title="ขนาดกระดาษ" style="padding:9px 11px;font-size:14px;border:1px solid var(--border);border-radius:8px;font-family:inherit">
         <option value="fit" data-en="Fit to chart" data-th="พอดีผัง">พอดีผัง</option>
@@ -150,6 +151,12 @@ let lang=(function(){ try{ return localStorage.getItem('ak_oc_lang')||'en'; }cat
 let allRows=[], byId=new Map(), roots=[], focusId=null, viewMode='cards', chartZoom=1, chartDepth=2, deptFilter='', treeLayout='grade';
 let ocScope='all';
 const OC_MGMT=new Set(['CEO','M4','M3','M2','M1 Senior','M1']);   // ระดับบริหาร
+const OC_EXEC=new Set(['CEO','M4','M3','M2']);                    // ผู้บริหารระดับสูง
+function ocDeptKey(n){ return (n.division||'')+''+(n.department||''); }
+// หัวหน้า/รักษาการของแต่ละแผนก = ตำแหน่งบนสุดของแผนกนั้น (หัวหน้าคนละแผนกกับหัวหน้าที่ตนรายงาน)
+function ocIsHead(n){ if(OC_EXEC.has(n.grade)) return true; const p=byId.get(n.reports_to_position_id); return !p || ocDeptKey(p)!==ocDeptKey(n); }
+// ลูกที่ "เก็บไว้" ในโหมด heads = หัวหน้าแผนกที่อยู่ใกล้ที่สุดในแต่ละกิ่ง (ข้ามตำแหน่งที่ไม่เก็บ)
+function ocHeadChildren(n){ const out=[]; const dig=c=>{ if(ocIsHead(c)) out.push(c); else c.children.forEach(dig); }; n.children.forEach(dig); return out; }
 function ocScopeChange(){ ocScope=document.getElementById('oc-scope').value; renderDrill(); }
 function ocToggleLayout(){ treeLayout = treeLayout==='grade' ? 'vertical' : 'grade'; renderDrill(); }
 const OC_GRADES=['CEO','M4','M3','M2','M1 Senior','M1','S3','S2','S1','O3','O2','O1'];
@@ -301,9 +308,9 @@ function renderChart(focus){
   const cv=document.getElementById('oc-chartView');
   const root=focus||(roots.length===1?roots[0]:null);
   if(!root){ cv.innerHTML=`<div class="oc-empty">${ocT('ไม่มีข้อมูล','No data')}</div>`; return; }
-  const MAXD = ocScope==='mgmt' ? 99 : chartDepth;   // ระดับบริหาร: แสดงทุกชั้น CEO→M1
-  const SC = n => ocScope==='mgmt' ? n.children.filter(c=>OC_MGMT.has(c.grade)) : n.children;
-  if(ocScope==='mgmt') return ocRenderColumns(cv, root, MAXD, SC);  // ผังบริหาร = ผสม หัวคอลัมน์แนวนอน + ลูกน้องเรียงลง
+  const MAXD = (ocScope==='mgmt'||ocScope==='heads') ? 99 : chartDepth;   // บริหาร/หัวหน้าแผนก: แสดงทุกชั้น
+  const SC = n => ocScope==='mgmt' ? n.children.filter(c=>OC_MGMT.has(c.grade)) : ocScope==='heads' ? ocHeadChildren(n) : n.children;
+  if(ocScope==='mgmt'||ocScope==='heads') return ocRenderColumns(cv, root, MAXD, SC);  // ผสม หัวคอลัมน์แนวนอน + ลูกน้องเรียงลง
   const BW=200,BH=132,SLOT=218,VGAP=54,PADT=12,PADL=10;
   const GCOLS=6,GMIN=7,GVGAP=14;   // ลูกน้อง leaf ≥ GMIN → พับเป็นตาราง GCOLS คอลัมน์ (ทำได้ทุก level แม้ลูกปนหัวหน้าย่อย)
   const nodes=[],depth=new Map(),gridC=new Map(),gridLeaves=new Map(),grow=new Map(),xs=new Map(),width=new Map();
@@ -404,7 +411,7 @@ function ocPrint(){
   }
   const sw=Math.ceil(natW*scale), sh=Math.ceil(natH*scale);
   const focus=focusId?byId.get(focusId):null;
-  const scope=ocScope==='mgmt' ? ocT('ระดับบริหาร (CEO–M1)','Management (CEO–M1)') : (deptFilter||(focus?focus.title:ocT('ทั้งองค์กร','Whole organization')));
+  const scope=ocScope==='mgmt' ? ocT('ระดับบริหาร (CEO–M1)','Management (CEO–M1)') : ocScope==='heads' ? ocT('ผู้บริหาร + หัวหน้าแผนก','Executives + Dept Heads') : (deptFilter||(focus?focus.title:ocT('ทั้งองค์กร','Whole organization')));
   const title=(ocT('ผังองค์กร','Organization Chart')+' — '+scope+'  ('+new Date().toLocaleDateString(lang==='en'?'en-GB':'th-TH')+')').replace(/&/g,'&amp;').replace(/</g,'&lt;');
   const sCol=(lb)=>'<div style="flex:1;text-align:center;padding:0 12px"><div style="border-top:1px solid #333;margin-top:38px"></div><div style="font-size:12px;font-weight:600;margin-top:6px">'+lb+'</div><div style="font-size:11px;color:#555;margin-top:12px">(...............................)</div><div style="font-size:11px;color:#555;margin-top:8px">'+ocT('ตำแหน่ง','Position')+' ...................</div><div style="font-size:11px;color:#555;margin-top:8px">'+ocT('วันที่','Date')+' ...................</div></div>';
   const signHtml=wantSign?'<div style="display:flex;justify-content:space-between;margin-top:22px;padding:0 6px">'+sCol(ocT('ผู้จัดทำ','Prepared by'))+sCol(ocT('ผู้ตรวจสอบ','Reviewed by'))+sCol(ocT('ผู้อนุมัติ','Approved by'))+'</div>':'';
