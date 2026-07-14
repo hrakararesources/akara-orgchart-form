@@ -402,6 +402,7 @@ function ocPrint(){
   if(viewMode!=='chart'){ ocSetMode('chart'); }        // พิมพ์จากโหมดแผนภูมิเส้น
   const z=document.getElementById('oc-ocZoom');
   if(!z){ setTimeout(ocPrint, 300); return; }           // รอ render เสร็จ
+  try{
   // ขนาดจริงของผัง (จาก inline style ที่ renderChart ตั้งไว้ — ไม่โดน zoom ของจอกวน)
   const natW=Math.ceil(parseFloat(z.style.width)||z.scrollWidth||1);
   const natH=Math.ceil(parseFloat(z.style.height)||z.scrollHeight||1);
@@ -421,7 +422,7 @@ function ocPrint(){
   const focus=focusId?byId.get(focusId):null;
   const scope=ocScope==='mgmt' ? ocT('ระดับบริหาร (CEO–M1)','Management (CEO–M1)') : ocScope==='heads' ? ocT('ผู้บริหาร + หัวหน้าแผนก','Executives + Dept Heads') : (deptFilter||(focus?focus.title:ocT('ทั้งองค์กร','Whole organization')));
   const title=(ocT('ผังองค์กร','Organization Chart')+' — '+scope+'  ('+new Date().toLocaleDateString(lang==='en'?'en-GB':'th-TH')+')').replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  const logoUrl=new URL('logo.jpg', location.href).href;
+  let logoUrl=''; try{ const _lg=document.querySelector('.topbar img'); logoUrl=(_lg&&_lg.src)||new URL('logo.jpg', location.href).href; }catch(_e){ logoUrl=''; }
   const sCol=(lb)=>'<div class="sig-col"><div class="sig-line"></div><div class="sig-role">'+lb+'</div><div class="sig-sub">(...............................)</div><div class="sig-sub">'+ocT('ตำแหน่ง','Position')+' ...................</div><div class="sig-sub">'+ocT('วันที่','Date')+' ...................</div></div>';
   const signHtml=wantSign?'<div class="sig-wrap">'+sCol(ocT('ผู้จัดทำ','Prepared by'))+sCol(ocT('ผู้ตรวจสอบ','Reviewed by'))+sCol(ocT('ผู้อนุมัติ','Approved by'))+'</div>':'';
   const baseCss=(document.querySelector('style')||{}).textContent||'';
@@ -457,6 +458,7 @@ function ocPrint(){
   const go=()=>{ if(done)return; done=true; try{ w.focus(); w.print(); }catch(e){} setTimeout(()=>{ try{ w.close(); }catch(e){} }, 500); };
   w.onload=()=>setTimeout(go, 400);
   setTimeout(()=>{ if(!done && w && !w.closed) go(); }, 1200);  // เผื่อ onload ไม่ยิง
+  }catch(err){ alert(ocT('พิมพ์ไม่สำเร็จ: ','Print failed: ')+((err&&err.message)||err)); }
 }
 
 ocSetLang(lang);  // ใช้ภาษาที่จำไว้ (ครั้งแรก = EN) + ตั้งป้ายข้อความ
