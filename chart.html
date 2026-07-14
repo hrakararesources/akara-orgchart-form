@@ -77,6 +77,7 @@
   #page-orgchart .ocb-name{font-weight:700;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #page-orgchart .ocb-name.vac{color:var(--red);font-weight:600;}
   #page-orgchart .ocb-title2{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  #page-orgchart .ocb-acting{font-size:11px;color:#b45309;margin-top:4px;line-height:1.25;font-weight:600;}
   #page-orgchart .ocb-foot{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:9px;}
   #page-orgchart .ocb-level{font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-lt);border:1px solid #cfdcf3;border-radius:6px;padding:1px 8px;white-space:nowrap;}
   #page-orgchart .ocb-cnt{font-size:10.5px;font-weight:600;color:var(--blue);background:var(--blue-lt);border-radius:6px;padding:1px 6px;white-space:nowrap;}
@@ -153,8 +154,15 @@ let ocScope='all';
 const OC_MGMT=new Set(['CEO','M4','M3','M2','M1 Senior','M1']);   // ระดับบริหาร
 const OC_EXEC=new Set(['CEO','M4','M3','M2']);                    // ผู้บริหารระดับสูง
 function ocDeptKey(n){ return (n.division||'')+''+(n.department||''); }
-// หัวหน้า/รักษาการของแต่ละแผนก = ตำแหน่งบนสุดของแผนกนั้น (หัวหน้าคนละแผนกกับหัวหน้าที่ตนรายงาน)
-function ocIsHead(n){ if(OC_EXEC.has(n.grade)) return true; const p=byId.get(n.reports_to_position_id); return !p || ocDeptKey(p)!==ocDeptKey(n); }
+// หัวหน้า/รักษาการของแต่ละแผนก:
+//  - ผู้บริหารสูง (CEO/M4/M3/M2) เก็บเสมอ
+//  - ต่ำกว่านั้น: ต้องเป็น "คนบนสุดของแผนก" (หัวหน้าที่ตนรายงานอยู่คนละแผนก) และตำแหน่งเป็นผู้จัดการ/หัวหน้า
+//    (กันไม่ให้ specialist/superintendent/assistant ระดับ M1/S/O หลุดเข้ามาเพราะแผนกย่อยละเอียด)
+const OC_HEAD_TITLE=/manager|ผู้จัดการ|หัวหน้า|head\b|chief/i;
+function ocIsHead(n){ if(OC_EXEC.has(n.grade)) return true;
+  const p=byId.get(n.reports_to_position_id);
+  if(p && ocDeptKey(p)===ocDeptKey(n)) return false;
+  return OC_HEAD_TITLE.test(n.title||''); }
 // ลูกที่ "เก็บไว้" ในโหมด heads = หัวหน้าแผนกที่อยู่ใกล้ที่สุดในแต่ละกิ่ง (ข้ามตำแหน่งที่ไม่เก็บ)
 function ocHeadChildren(n){ const out=[]; const dig=c=>{ if(ocIsHead(c)) out.push(c); else c.children.forEach(dig); }; n.children.forEach(dig); return out; }
 function ocScopeChange(){ ocScope=document.getElementById('oc-scope').value; renderDrill(); }
@@ -240,7 +248,7 @@ function renderCards(focus){
   rh.textContent=focus?(reports.length?`${ocT('ผู้ใต้บังคับบัญชาโดยตรง','Direct reports')} (${reports.length})`:ocT('ไม่มีตำแหน่งใต้สังกัด','No subordinates')):`${ocT('ตำแหน่งระดับบนสุด','Top level')} (${reports.length})`;
   rg.innerHTML=reports.map(n=>{const k=n.children.length;return `<div class="oc-card ${k?'kids':''}" ${k?`onclick="ocSetFocus('${n.position_id}')"`:''}>${cardInner(n,false)}${k?`<span class="oc-countbadge">▾ ${k}/${descCount(n)}</span>`:''}</div>`;}).join('')||`<div class="oc-empty">${ocT('ไม่มีผู้ใต้บังคับบัญชา','No subordinates')}</div>`;
 }
-function chartBox(n){ const nm=ocNm(n); const k=n.children.length; return `<div class="oc-box ${n.status}" onclick="ocSetFocus('${n.position_id}')"><div class="ocb-head">${avatar(n)}<div class="ocb-info"><div class="ocb-name ${nm?'':'vac'}">${esc(nm||ocT('ตำแหน่งว่าง','Vacant'))}</div></div></div><div class="ocb-title2">${esc(n.title)}</div><div class="ocb-foot"><span class="ocb-level">${n.grade?ocT('ระดับ','Level')+' '+esc(n.grade):'—'}</span><span class="oc-badge ${n.status}">${statusLabel(n.status)}</span>${k?`<span class="ocb-cnt">▾ ${k}/${descCount(n)}</span>`:''}</div></div>`; }
+function chartBox(n){ const nm=ocNm(n); const k=n.children.length; const act=nm?'':ocActNm(n); return `<div class="oc-box ${n.status}" onclick="ocSetFocus('${n.position_id}')"><div class="ocb-head">${avatar(n)}<div class="ocb-info"><div class="ocb-name ${nm?'':'vac'}">${esc(nm||ocT('ตำแหน่งว่าง','Vacant'))}</div></div></div><div class="ocb-title2">${esc(n.title)}</div>${act?`<div class="ocb-acting">${ocT('รักษาการ','Acting')}: ${esc(act)}</div>`:''}<div class="ocb-foot"><span class="ocb-level">${n.grade?ocT('ระดับ','Level')+' '+esc(n.grade):'—'}</span><span class="oc-badge ${n.status}">${statusLabel(n.status)}</span>${k?`<span class="ocb-cnt">▾ ${k}/${descCount(n)}</span>`:''}</div></div>`; }
 function ocZoombarHtml(){
   return `<div class="oc-zoombar"><button class="oc-btn" onclick="ocDepthBy(-1)">− ${ocT('ชั้น','level')}</button><span class="oc-muted" id="oc-depth" style="min-width:54px;text-align:center">${ocT('ชั้น','Levels')} ${chartDepth}</span><button class="oc-btn" onclick="ocDepthBy(1)">+ ${ocT('ชั้น','level')}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocZoomBy(-0.1)">−</button><span class="oc-muted" id="oc-zoomPct" style="min-width:44px;text-align:center">100%</span><button class="oc-btn" onclick="ocZoomBy(0.1)">+</button><button class="oc-btn" onclick="ocZoomFit()">${ocT('พอดีหน้าจอ','Fit')}</button></div>`;
 }
