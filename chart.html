@@ -115,10 +115,15 @@
       </div>
       <button class="oc-btn" onclick="ocSetFocus(null)" data-en="▲ Top" data-th="▲ บนสุด">▲ บนสุด</button>
       <select id="oc-dept" onchange="ocDeptChange()" style="padding:9px 11px;font-size:14px;border:1px solid var(--border);border-radius:8px;font-family:inherit;min-width:200px"><option value="">— ทุกแผนก —</option></select>
+      <select id="oc-scope" onchange="ocScopeChange()" title="ระดับที่แสดง" style="padding:9px 11px;font-size:14px;border:1px solid var(--border);border-radius:8px;font-family:inherit">
+        <option value="all" data-en="All levels" data-th="ทุกระดับ">ทุกระดับ</option>
+        <option value="mgmt" data-en="Management (CEO–M1)" data-th="ระดับบริหาร (CEO–M1)">ระดับบริหาร (CEO–M1)</option>
+      </select>
       <select id="oc-paper" title="ขนาดกระดาษ" style="padding:9px 11px;font-size:14px;border:1px solid var(--border);border-radius:8px;font-family:inherit">
         <option value="fit" data-en="Fit to chart" data-th="พอดีผัง">พอดีผัง</option>
         <option value="a4">A4</option><option value="a3">A3</option><option value="a2">A2</option><option value="a1">A1</option>
       </select>
+      <label style="display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer"><input type="checkbox" id="oc-sign"> <span data-en="Signature block" data-th="ช่องเซ็นอนุมัติ">ช่องเซ็นอนุมัติ</span></label>
       <button class="oc-btn" onclick="ocPrint()" data-en="🖨️ Print / PDF" data-th="🖨️ พิมพ์ / PDF">🖨️ พิมพ์ / PDF</button>
     </div>
     <div class="oc-print-title" id="oc-print-title"></div>
@@ -143,6 +148,9 @@ async function apiGet(path){ const r=await fetch(URL+'/rest/v1/'+path,{headers:{
 
 let lang=(function(){ try{ return localStorage.getItem('ak_oc_lang')||'en'; }catch(e){ return 'en'; } })();  // จำภาษาล่าสุด (ครั้งแรก = EN)
 let allRows=[], byId=new Map(), roots=[], focusId=null, viewMode='cards', chartZoom=1, chartDepth=2, deptFilter='', treeLayout='grade';
+let ocScope='all';
+const OC_MGMT=new Set(['CEO','M4','M3','M2','M1 Senior','M1']);   // ระดับบริหาร
+function ocScopeChange(){ ocScope=document.getElementById('oc-scope').value; renderDrill(); }
 function ocToggleLayout(){ treeLayout = treeLayout==='grade' ? 'vertical' : 'grade'; renderDrill(); }
 const OC_GRADES=['CEO','M4','M3','M2','M1 Senior','M1','S3','S2','S1','O3','O2','O1'];
 const AV=['#2B5BAE','#1a6e5a','#8e3d8e','#c0562a','#1a7a7a','#a04a1a','#2c6b2f','#7a3b6e'];
@@ -247,22 +255,23 @@ function renderChart(focus){
   const cv=document.getElementById('oc-chartView');
   const root=focus||(roots.length===1?roots[0]:null);
   if(!root){ cv.innerHTML=`<div class="oc-empty">${ocT('ไม่มีข้อมูล','No data')}</div>`; return; }
-  const MAXD=chartDepth;
+  const MAXD = ocScope==='mgmt' ? 99 : chartDepth;   // ระดับบริหาร: แสดงทุกชั้น CEO→M1
+  const SC = n => ocScope==='mgmt' ? n.children.filter(c=>OC_MGMT.has(c.grade)) : n.children;
   const BW=200,BH=132,SLOT=218,VGAP=54,PADT=12,PADL=10;
   const GCOLS=6,GMIN=7,GVGAP=14;   // ลูกน้อง leaf ≥ GMIN คน → พับเป็นตาราง GCOLS คอลัมน์
   const nodes=[],depth=new Map(),grid=new Map(),grow=new Map(),xs=new Map(),width=new Map();
   // 1) รวมโหนด + ชั้น + ตั้งธง grid (ลูกทั้งหมดเป็น leaf และจำนวนมาก)
   (function rec(n,d){ nodes.push(n); depth.set(n.position_id,d);
-    const kids=d<MAXD?n.children:[];
-    grid.set(n.position_id, kids.length>=GMIN && kids.every(k=> d+1>=MAXD || k.children.length===0));
+    const kids=d<MAXD?SC(n):[];
+    grid.set(n.position_id, kids.length>=GMIN && kids.every(k=> d+1>=MAXD || SC(k).length===0));
     kids.forEach(c=>rec(c,d+1)); })(root,0);
   // 2) ความกว้าง (สลอต) — grid ใช้ GCOLS สลอต
-  (function w(n){ const d=depth.get(n.position_id); const kids=d<MAXD?n.children:[];
+  (function w(n){ const d=depth.get(n.position_id); const kids=d<MAXD?SC(n):[];
     if(!kids.length){ width.set(n.position_id,1); return 1; }
     if(grid.get(n.position_id)){ const c=Math.min(GCOLS,kids.length); kids.forEach(k=>width.set(k.position_id,1)); width.set(n.position_id,c); return c; }
     let s=0; kids.forEach(k=>s+=w(k)); s=Math.max(1,s); width.set(n.position_id,s); return s; })(root);
   // 3) ตำแหน่ง x (สลอต)
-  (function ax(n,left){ const d=depth.get(n.position_id); const kids=d<MAXD?n.children:[];
+  (function ax(n,left){ const d=depth.get(n.position_id); const kids=d<MAXD?SC(n):[];
     if(!kids.length){ xs.set(n.position_id,left); return; }
     if(grid.get(n.position_id)){ const c=Math.min(GCOLS,kids.length);
       kids.forEach((k,i)=>{ xs.set(k.position_id,left+(i%c)); grow.set(k.position_id,Math.floor(i/c)); });
@@ -272,7 +281,7 @@ function renderChart(focus){
   // 4) ความสูงแต่ละแถว (grid ทำให้แถวลูกสูงขึ้น) + Y
   const maxD=Math.max(...nodes.map(n=>depth.get(n.position_id)));
   const rowH=new Array(maxD+1).fill(BH);
-  nodes.forEach(n=>{ if(grid.get(n.position_id)){ const cnt=n.children.length, c=Math.min(GCOLS,cnt), rows=Math.ceil(cnt/c); const bh=rows*BH+(rows-1)*GVGAP, cd=depth.get(n.position_id)+1; if(cd<=maxD) rowH[cd]=Math.max(rowH[cd],bh); } });
+  nodes.forEach(n=>{ if(grid.get(n.position_id)){ const cnt=SC(n).length, c=Math.min(GCOLS,cnt), rows=Math.ceil(cnt/c); const bh=rows*BH+(rows-1)*GVGAP, cd=depth.get(n.position_id)+1; if(cd<=maxD) rowH[cd]=Math.max(rowH[cd],bh); } });
   const rowY=new Array(maxD+1); rowY[0]=PADT; for(let d=1;d<=maxD;d++) rowY[d]=rowY[d-1]+rowH[d-1]+VGAP;
   const yOf=n=>{ const pid=n.position_id; return grow.has(pid) ? rowY[depth.get(pid)]+grow.get(pid)*(BH+GVGAP) : rowY[depth.get(pid)]; };
   const xpx=n=>PADL+xs.get(n.position_id)*SLOT;
@@ -285,7 +294,7 @@ function renderChart(focus){
     if(grid.get(p.position_id)&&grow.has(n.position_id)) return;  // grid วาดแยกด้านล่าง
     const cx=xpx(n)+BW/2,ct=yOf(n),px=xpx(p)+BW/2,pb=yOf(p)+BH,bus=pb+VGAP/2;
     paths+=`<path d="M${px} ${pb} V${bus} H${cx} V${ct}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`; });
-  nodes.forEach(P=>{ if(!grid.get(P.position_id)) return; const cnt=P.children.length, c=Math.min(GCOLS,cnt), d=depth.get(P.position_id), cd=d+1; if(cd>maxD) return;
+  nodes.forEach(P=>{ if(!grid.get(P.position_id)) return; const cnt=SC(P).length, c=Math.min(GCOLS,cnt), d=depth.get(P.position_id), cd=d+1; if(cd>maxD) return;
     const left=xs.get(P.position_id)-(c-1)/2, blockTop=rowY[cd], busY=blockTop-18, Px=xpx(P)+BW/2, Pb=yOf(P)+BH;
     const colX=cc=>PADL+(left+cc)*SLOT+BW/2, cols0=Math.min(c,cnt);
     paths+=`<path d="M${Px} ${Pb} V${busY}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`;
@@ -330,20 +339,24 @@ function ocPrint(){
   // ขนาดจริงของผัง (จาก inline style ที่ renderChart ตั้งไว้ — ไม่โดน zoom ของจอกวน)
   const natW=Math.ceil(parseFloat(z.style.width)||z.scrollWidth||1);
   const natH=Math.ceil(parseFloat(z.style.height)||z.scrollHeight||1);
+  const wantSign=!!(document.getElementById('oc-sign')&&document.getElementById('oc-sign').checked);
+  const signMM=wantSign?52:0;
   const M=6, titleMM=14; let pageW,pageH,scale;
   if(paper==='fit'){
     const cap=6000; scale=Math.min(1, cap/Math.max(natW,natH));
     const toMM=px=>Math.ceil(px*scale/96*25.4);
-    pageW=toMM(natW)+2*M; pageH=toMM(natH)+titleMM+2*M;
+    pageW=toMM(natW)+2*M; pageH=toMM(natH)+titleMM+signMM+2*M;
   } else {
     [pageW,pageH]=OC_PAPER[paper];
-    const availW=(pageW-2*M)/25.4*96, availH=(pageH-2*M-titleMM)/25.4*96;
+    const availW=(pageW-2*M)/25.4*96, availH=(pageH-2*M-titleMM-signMM)/25.4*96;
     scale=Math.min(availW/natW, availH/natH);
   }
   const sw=Math.ceil(natW*scale), sh=Math.ceil(natH*scale);
   const focus=focusId?byId.get(focusId):null;
-  const scope=deptFilter||(focus?focus.title:ocT('ทั้งองค์กร','Whole organization'));
+  const scope=ocScope==='mgmt' ? ocT('ระดับบริหาร (CEO–M1)','Management (CEO–M1)') : (deptFilter||(focus?focus.title:ocT('ทั้งองค์กร','Whole organization')));
   const title=(ocT('ผังองค์กร','Organization Chart')+' — '+scope+'  ('+new Date().toLocaleDateString(lang==='en'?'en-GB':'th-TH')+')').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const sCol=(lb)=>'<div style="flex:1;text-align:center;padding:0 12px"><div style="border-top:1px solid #333;margin-top:38px"></div><div style="font-size:12px;font-weight:600;margin-top:6px">'+lb+'</div><div style="font-size:11px;color:#555;margin-top:12px">(...............................)</div><div style="font-size:11px;color:#555;margin-top:8px">'+ocT('ตำแหน่ง','Position')+' ...................</div><div style="font-size:11px;color:#555;margin-top:8px">'+ocT('วันที่','Date')+' ...................</div></div>';
+  const signHtml=wantSign?'<div style="display:flex;justify-content:space-between;margin-top:22px;padding:0 6px">'+sCol(ocT('ผู้จัดทำ','Prepared by'))+sCol(ocT('ผู้ตรวจสอบ','Reviewed by'))+sCol(ocT('ผู้อนุมัติ','Approved by'))+'</div>':'';
   const baseCss=(document.querySelector('style')||{}).textContent||'';
   const html='<!DOCTYPE html><html><head><meta charset="utf-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">'
@@ -360,7 +373,9 @@ function ocPrint(){
     +'<div class="pt-title">'+title+'</div>'
     +'<div class="pt-clip"><div class="pt-scale"><div id="page-orgchart"><div class="oc-scroll">'
     +'<div class="oc-zoom" style="position:relative;width:'+natW+'px;height:'+natH+'px">'+z.innerHTML+'</div>'
-    +'</div></div></div></div></body></html>';
+    +'</div></div></div></div>'
+    +signHtml
+    +'</body></html>';
   const w=window.open('','_blank');
   if(!w){ alert(ocT('เบราว์เซอร์บล็อกป๊อปอัป กรุณาอนุญาต popup แล้วลองใหม่','Popup blocked — please allow popups and retry')); return; }
   w.document.open(); w.document.write(html); w.document.close();
