@@ -406,8 +406,8 @@ function ocPrint(){
   const natW=Math.ceil(parseFloat(z.style.width)||z.scrollWidth||1);
   const natH=Math.ceil(parseFloat(z.style.height)||z.scrollHeight||1);
   const wantSign=!!(document.getElementById('oc-sign')&&document.getElementById('oc-sign').checked);
-  const signMM=wantSign?52:0;
-  const M=6, titleMM=14; let pageW,pageH,scale;
+  const signMM=wantSign?60:0;
+  const M=6, titleMM=22; let pageW,pageH,scale;
   if(paper==='fit'){
     const cap=6000; scale=Math.min(1, cap/Math.max(natW,natH));
     const toMM=px=>Math.ceil(px*scale/96*25.4);
@@ -421,8 +421,9 @@ function ocPrint(){
   const focus=focusId?byId.get(focusId):null;
   const scope=ocScope==='mgmt' ? ocT('ระดับบริหาร (CEO–M1)','Management (CEO–M1)') : ocScope==='heads' ? ocT('ผู้บริหาร + หัวหน้าแผนก','Executives + Dept Heads') : (deptFilter||(focus?focus.title:ocT('ทั้งองค์กร','Whole organization')));
   const title=(ocT('ผังองค์กร','Organization Chart')+' — '+scope+'  ('+new Date().toLocaleDateString(lang==='en'?'en-GB':'th-TH')+')').replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  const sCol=(lb)=>'<div style="flex:1;text-align:center;padding:0 12px"><div style="border-top:1px solid #333;margin-top:38px"></div><div style="font-size:12px;font-weight:600;margin-top:6px">'+lb+'</div><div style="font-size:11px;color:#555;margin-top:12px">(...............................)</div><div style="font-size:11px;color:#555;margin-top:8px">'+ocT('ตำแหน่ง','Position')+' ...................</div><div style="font-size:11px;color:#555;margin-top:8px">'+ocT('วันที่','Date')+' ...................</div></div>';
-  const signHtml=wantSign?'<div style="display:flex;justify-content:space-between;margin-top:22px;padding:0 6px">'+sCol(ocT('ผู้จัดทำ','Prepared by'))+sCol(ocT('ผู้ตรวจสอบ','Reviewed by'))+sCol(ocT('ผู้อนุมัติ','Approved by'))+'</div>':'';
+  const logoUrl=new URL('logo.jpg', location.href).href;
+  const sCol=(lb)=>'<div class="sig-col"><div class="sig-line"></div><div class="sig-role">'+lb+'</div><div class="sig-sub">(...............................)</div><div class="sig-sub">'+ocT('ตำแหน่ง','Position')+' ...................</div><div class="sig-sub">'+ocT('วันที่','Date')+' ...................</div></div>';
+  const signHtml=wantSign?'<div class="sig-wrap">'+sCol(ocT('ผู้จัดทำ','Prepared by'))+sCol(ocT('ผู้ตรวจสอบ','Reviewed by'))+sCol(ocT('ผู้อนุมัติ','Approved by'))+'</div>':'';
   const baseCss=(document.querySelector('style')||{}).textContent||'';
   const html='<!DOCTYPE html><html><head><meta charset="utf-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">'
@@ -432,11 +433,18 @@ function ocPrint(){
     +'html,body{ margin:0; padding:0; background:#fff; font-family:\'IBM Plex Sans Thai\',\'IBM Plex Sans\',sans-serif; }'
     +'#page-orgchart .oc-scroll{ max-height:none!important; overflow:visible!important; padding:0!important; }'
     +'#page-orgchart .oc-zoom{ display:block!important; }'
-    +'.pt-title{ font-size:15px; font-weight:700; color:#1B4BA8; margin:0 0 8px; }'
-    +'.pt-clip{ width:'+sw+'px; height:'+sh+'px; overflow:hidden; }'
+    +'.pt-head{ position:relative; text-align:center; min-height:44px; margin:0 0 12px; border-bottom:2px solid #1B4BA8; padding-bottom:10px; }'
+    +'.pt-logo{ position:absolute; left:2px; top:50%; transform:translateY(-50%); height:40px; width:auto; }'
+    +'.pt-title{ font-size:17px; font-weight:700; color:#1B4BA8; margin:0; padding:6px 120px 0; line-height:1.3; }'
+    +'.pt-clip{ width:'+sw+'px; height:'+sh+'px; overflow:hidden; margin:0 auto; }'
     +'.pt-scale{ transform-origin:top left; transform:scale('+scale.toFixed(4)+'); }'
+    +'.sig-wrap{ display:flex; gap:22px; justify-content:center; margin-top:30px; }'
+    +'.sig-col{ flex:1; max-width:250px; text-align:center; padding:14px 16px 16px; border:1px solid #e4e8f0; border-radius:12px; background:#f9fafc; }'
+    +'.sig-line{ border-top:1px dashed #b9c2d6; margin:30px 10px 0; }'
+    +'.sig-role{ font-size:12.5px; font-weight:700; color:#1B4BA8; margin-top:10px; letter-spacing:.2px; }'
+    +'.sig-sub{ font-size:11px; color:#6b7280; margin-top:10px; }'
     +'</style></head><body>'
-    +'<div class="pt-title">'+title+'</div>'
+    +'<div class="pt-head"><img class="pt-logo" src="'+logoUrl+'" alt=""><div class="pt-title">'+title+'</div></div>'
     +'<div class="pt-clip"><div class="pt-scale"><div id="page-orgchart"><div class="oc-scroll">'
     +'<div class="oc-zoom" style="position:relative;width:'+natW+'px;height:'+natH+'px">'+z.innerHTML+'</div>'
     +'</div></div></div></div>'
