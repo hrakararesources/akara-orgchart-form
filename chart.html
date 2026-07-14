@@ -438,6 +438,7 @@ function ocPrint(){
     scale=Math.min(availW/natW, availH/natH);
   }
   const sw=Math.ceil(natW*scale), sh=Math.ceil(natH*scale);
+  const contentHpx=Math.round((pageH-2*M)/25.4*96);   // ความสูงพื้นที่พิมพ์ (สำหรับตรึงช่องเซ็นไว้ล่างสุด)
   const focus=focusId?byId.get(focusId):null;
   const scope=ocScope==='mgmt' ? ocT('ระดับบริหาร (CEO–M1)','Management (CEO–M1)') : ocScope==='heads' ? ocT('ผู้บริหาร + หัวหน้าแผนก','Executives + Dept Heads') : (deptFilter||(focus?focus.title:ocT('ทั้งองค์กร','Whole organization')));
   const title=(ocT('ผังองค์กร','Organization Chart')+' — '+scope+'  ('+new Date().toLocaleDateString(lang==='en'?'en-GB':'th-TH')+')').replace(/&/g,'&amp;').replace(/</g,'&lt;');
@@ -453,22 +454,26 @@ function ocPrint(){
     +'html,body{ margin:0; padding:0; background:#fff; font-family:\'IBM Plex Sans Thai\',\'IBM Plex Sans\',sans-serif; }'
     +'#page-orgchart .oc-scroll{ max-height:none!important; overflow:visible!important; padding:0!important; }'
     +'#page-orgchart .oc-zoom{ display:block!important; }'
-    +'.pt-head{ position:relative; text-align:center; min-height:44px; margin:0 0 12px; border-bottom:2px solid #1B4BA8; padding-bottom:10px; }'
-    +'.pt-logo{ position:absolute; left:2px; top:50%; transform:translateY(-50%); height:40px; width:auto; }'
-    +'.pt-title{ font-size:17px; font-weight:700; color:#1B4BA8; margin:0; padding:6px 120px 0; line-height:1.3; }'
-    +'.pt-clip{ width:'+sw+'px; height:'+sh+'px; overflow:hidden; margin:0 auto; }'
+    +'.pt-body{ min-height:'+contentHpx+'px; display:flex; flex-direction:column; }'
+    +'.pt-head{ display:flex; align-items:center; gap:14px; margin:0 0 12px; border-bottom:2px solid #1B4BA8; padding-bottom:10px; }'
+    +'.pt-logo{ flex:0 0 150px; width:150px; max-height:42px; object-fit:contain; object-position:left center; }'
+    +'.pt-title{ flex:1; font-size:17px; font-weight:700; color:#1B4BA8; margin:0; text-align:center; line-height:1.3; }'
+    +'.pt-head::after{ content:""; flex:0 0 150px; }'  /* ช่องว่างขวาเท่าโลโก้ ให้หัวเรื่องอยู่กึ่งกลางหน้าจริง */
+    +'.pt-clip{ width:'+sw+'px; height:'+sh+'px; overflow:hidden; margin:0 auto; flex:0 0 auto; }'
     +'.pt-scale{ transform-origin:top left; transform:scale('+scale.toFixed(4)+'); }'
-    +'.sig-wrap{ display:flex; gap:16px; justify-content:center; margin:18px auto 0; max-width:'+Math.max(360,sw)+'px; }'
+    +'.sig-wrap{ display:flex; gap:16px; justify-content:center; margin:auto auto 0; max-width:'+Math.max(360,sw)+'px; padding-top:18px; }'
     +'.sig-col{ flex:1; max-width:220px; text-align:center; padding:8px 14px 10px; border:1px solid #e7ebf2; border-radius:9px; background:#fbfcfe; }'
     +'.sig-line{ border-top:1px dashed #c4ccda; margin:16px 14px 0; }'
     +'.sig-role{ font-size:11.5px; font-weight:700; color:#1B4BA8; margin-top:6px; letter-spacing:.2px; }'
     +'.sig-sub{ font-size:10px; color:#7a828f; margin-top:7px; }'
     +'</style></head><body>'
+    +'<div class="pt-body">'
     +'<div class="pt-head"><img class="pt-logo" src="'+logoUrl+'" alt=""><div class="pt-title">'+title+'</div></div>'
     +'<div class="pt-clip"><div class="pt-scale"><div id="page-orgchart"><div class="oc-scroll">'
     +'<div class="oc-zoom" style="position:relative;width:'+natW+'px;height:'+natH+'px">'+z.innerHTML+'</div>'
     +'</div></div></div></div>'
     +signHtml
+    +'</div>'
     +'</body></html>';
   const w=window.open('','_blank');
   if(!w){ alert(ocT('เบราว์เซอร์บล็อกป๊อปอัป กรุณาอนุญาต popup แล้วลองใหม่','Popup blocked — please allow popups and retry')); return; }
