@@ -253,46 +253,63 @@ function ocZoombarHtml(){
   return `<div class="oc-zoombar"><button class="oc-btn" onclick="ocDepthBy(-1)">− ${ocT('ชั้น','level')}</button><span class="oc-muted" id="oc-depth" style="min-width:54px;text-align:center">${ocT('ชั้น','Levels')} ${chartDepth}</span><button class="oc-btn" onclick="ocDepthBy(1)">+ ${ocT('ชั้น','level')}</button><span style="display:inline-block;width:10px"></span><button class="oc-btn" onclick="ocZoomBy(-0.1)">−</button><span class="oc-muted" id="oc-zoomPct" style="min-width:44px;text-align:center">100%</span><button class="oc-btn" onclick="ocZoomBy(0.1)">+</button><button class="oc-btn" onclick="ocZoomFit()">${ocT('พอดีหน้าจอ','Fit')}</button></div>`;
 }
 // เลย์เอาต์ผสม (แบบผังองค์กรมาตรฐาน): หัวหน้าสูงสุดบนสุด → ผู้ใต้บังคับบัญชาระดับถัดไปเป็น "หัวคอลัมน์" วางแนวนอน
-// → ลูกน้องของแต่ละคอลัมน์เรียงลงล่าง (indent ตามชั้น) — เต็มทั้งกว้างและสูง อัตราส่วนพอดีหน้ากระดาษ
+// → ลูกน้องของแต่ละคอลัมน์เรียงลงล่าง ถ้าลูกเยอะเกิน CAP จะพับเป็นหลายคอลัมน์ย่อยให้ความสูงบาลานซ์กัน
 function ocRenderColumns(cv, root, MAXD, SC){
   SC = SC || (n=>n.children);
-  const IND=30, BW=200, BH=124, ROW=BH+14, PAD=10, COLGAP=26, TOPGAP=52;
-  const items=[]; const posById=new Map();
+  const IND=30, BW=200, BH=124, ROW=BH+16, PAD=10, COLGAP=30, SUBGAP=22, TOPGAP=54, HGAP=46, CAP=6;
   const heads = MAXD>=1 ? SC(root) : [];
-  const HEADY = PAD + BH + TOPGAP;   // แถวหัวคอลัมน์เริ่มใต้กล่องหัวหน้าสูงสุด
-  let colX=PAD, maxRows=0;
+  const HEADY = PAD + BH + TOPGAP;        // แถวหัวคอลัมน์ (exec) ใต้กล่อง CEO
+  const CHILDTOP = HEADY + BH + HGAP;     // แถวลูกน้อง ใต้กล่อง exec
+  const items=[]; const posById=new Map(); const gridKids=new Set(); const execMeta=[];
+  let colX=PAD;
   heads.forEach(head=>{
-    const local=[]; let row={v:0}, maxD={v:0};
-    (function place(n,d,od){ local.push({n,d,row:row.v++}); if(d>maxD.v)maxD.v=d;
-      const kids = od<MAXD ? SC(n) : []; kids.forEach(c=>place(c,d+1,od+1)); })(head,0,1);
-    const colW = maxD.v*IND + BW;
-    const bx = colX;
-    local.forEach(it=>{ const x=bx+it.d*IND, y=HEADY+it.row*ROW; const rec={n:it.n,x,y}; items.push(rec); posById.set(it.n.position_id,rec); });
-    if(local.length>maxRows) maxRows=local.length;
-    colX += colW + COLGAP;
+    const kids = SC(head);
+    const flat = kids.length>0 && kids.every(k=>SC(k).length===0);
+    let blockW=BW;
+    if(flat && kids.length>CAP){                       // ลูกเป็น leaf และเยอะ → พับหลายคอลัมน์ย่อย
+      const cols=Math.ceil(kids.length/CAP), rowsPer=Math.ceil(kids.length/cols);
+      blockW=cols*BW+(cols-1)*SUBGAP;
+      kids.forEach((k,i)=>{ const c=Math.floor(i/rowsPer), r=i%rowsPer;
+        const rec={n:k,x:colX+c*(BW+SUBGAP),y:CHILDTOP+r*ROW}; items.push(rec); posById.set(k.position_id,rec); gridKids.add(k.position_id); });
+      execMeta.push({head, colX, cols, rowsPer, n:kids.length, grid:true});
+    } else {                                            // เรียงลง + indent ตามชั้น (รองรับผังลึกของโหมดบริหาร)
+      let row=0, maxD=0;
+      kids.forEach(k=>{ (function place(n,d){ const rec={n,x:colX+d*IND,y:CHILDTOP+row*ROW}; items.push(rec); posById.set(n.position_id,rec); if(d>maxD)maxD=d; row++; SC(n).forEach(c=>place(c,d+1)); })(k,0); });
+      blockW=Math.max(BW, maxD*IND+BW);
+      execMeta.push({head, colX, grid:false});
+    }
+    const headX = colX + Math.max(0,(blockW-BW)/2);
+    const hrec={n:head,x:headX,y:HEADY}; items.push(hrec); posById.set(head.position_id,hrec);
+    colX += blockW + COLGAP;
   });
-  const contentRight = colX - COLGAP;
-  // กล่องหัวหน้าสูงสุด: กึ่งกลางเหนือทุกคอลัมน์
-  const rootX = heads.length ? Math.max(PAD,(PAD+contentRight)/2 - BW/2) : PAD;
+  const contentRight = heads.length ? colX-COLGAP : PAD+BW;
+  const rootX = Math.max(PAD,(PAD+contentRight)/2 - BW/2);
   const rootRec={n:root,x:rootX,y:PAD}; items.unshift(rootRec); posById.set(root.position_id,rootRec);
   const W = Math.max(contentRight, rootX+BW) + PAD;
-  const H = HEADY + Math.max(1,maxRows)*ROW + PAD;
+  const H = Math.max(...items.map(it=>it.y)) + BH + PAD;
   const boxes=items.map(it=>`<div class="oc-tnode" style="left:${it.x}px;top:${it.y}px;width:${BW}px">${chartBox(it.n)}</div>`).join('');
-  let paths='';
-  // เส้นจากหัวหน้าสูงสุด → หัวคอลัมน์ (bus แนวนอน)
+  let paths=''; const S='stroke="#b9c2d6" stroke-width="1.5"', SL='stroke="#d3d9e4" stroke-width="1.2"';
+  // CEO → หัวคอลัมน์ (exec) : bus แนวนอน
   if(heads.length){
-    const rb=rootRec, busY=rb.y+BH+TOPGAP*0.55, rcx=rb.x+BW/2, rbot=rb.y+BH;
-    const headRecs=heads.map(h=>posById.get(h.position_id));
-    const hxs=headRecs.map(r=>r.x+BW/2);
-    paths+=`<path d="M${rcx} ${rbot} V${busY}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`;
-    paths+=`<path d="M${Math.min(...hxs)} ${busY} H${Math.max(...hxs)}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`;
-    headRecs.forEach(r=>{ paths+=`<path d="M${r.x+BW/2} ${busY} V${r.y}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`; });
+    const rb=rootRec, busY=rb.y+BH+TOPGAP*0.5, rcx=rb.x+BW/2;
+    const hxs=heads.map(h=>posById.get(h.position_id).x+BW/2);
+    paths+=`<path d="M${rcx} ${rb.y+BH} V${busY}" fill="none" ${S}/>`;
+    paths+=`<path d="M${Math.min(...hxs)} ${busY} H${Math.max(...hxs)}" fill="none" ${S}/>`;
+    heads.forEach(h=>{ const r=posById.get(h.position_id); paths+=`<path d="M${r.x+BW/2} ${busY} V${r.y}" fill="none" ${S}/>`; });
   }
-  // เส้นภายในคอลัมน์: spine ซ้าย + ขาแยกเข้าแต่ละกล่อง
-  items.forEach(rec=>{ const n=rec.n; if(n===root||heads.some(h=>h.position_id===n.position_id)) return;
+  // exec แบบ grid → bus เหนือกลุ่ม + สันแนวตั้งต่อคอลัมน์ย่อย
+  execMeta.filter(m=>m.grid).forEach(m=>{
+    const hr=posById.get(m.head.position_id), busY=CHILDTOP-24, ecx=hr.x+BW/2;
+    const colC=c=>m.colX+c*(BW+SUBGAP)+BW/2;
+    paths+=`<path d="M${ecx} ${hr.y+BH} V${busY}" fill="none" ${S}/>`;
+    paths+=`<path d="M${colC(0)} ${busY} H${colC(m.cols-1)}" fill="none" ${S}/>`;
+    for(let c=0;c<m.cols;c++){ const cnt=Math.min(m.rowsPer, m.n-c*m.rowsPer); if(cnt<=0) continue; const bottom=CHILDTOP+(cnt-1)*ROW+BH; paths+=`<path d="M${colC(c)} ${busY} V${bottom}" fill="none" ${SL}/>`; }
+  });
+  // exec แบบเรียงลง / โหนดลึก → spine ซ้าย + ขาแยกเข้าแต่ละกล่อง
+  items.forEach(rec=>{ const n=rec.n; if(n===root||gridKids.has(n.position_id)||heads.some(h=>h.position_id===n.position_id)) return;
     const p=posById.get(n.reports_to_position_id); if(!p) return;
     const spineX=p.x+18, startY=p.y+BH, cy=rec.y+BH/2, lx=rec.x;
-    paths+=`<path d="M${spineX} ${startY} V${cy} H${lx}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`; });
+    paths+=`<path d="M${spineX} ${startY} V${cy} H${lx}" fill="none" ${S}/>`; });
   cv.innerHTML=`${ocZoombarHtml()}<div class="oc-scroll" id="oc-ocScroll"><div class="oc-zoom" id="oc-ocZoom" style="position:relative;width:${W}px;height:${H}px"><svg class="oc-svg" width="${W}" height="${H}">${paths}</svg>${boxes}</div></div>`;
   requestAnimationFrame(ocZoomFit);
 }
@@ -407,7 +424,7 @@ function ocPrint(){
   const natW=Math.ceil(parseFloat(z.style.width)||z.scrollWidth||1);
   const natH=Math.ceil(parseFloat(z.style.height)||z.scrollHeight||1);
   const wantSign=!!(document.getElementById('oc-sign')&&document.getElementById('oc-sign').checked);
-  const signMM=wantSign?60:0;
+  const signMM=wantSign?40:0;
   const M=6, titleMM=22; let pageW,pageH,scale;
   if(paper==='fit'){
     const cap=6000; scale=Math.min(1, cap/Math.max(natW,natH));
@@ -439,11 +456,11 @@ function ocPrint(){
     +'.pt-title{ font-size:17px; font-weight:700; color:#1B4BA8; margin:0; padding:6px 120px 0; line-height:1.3; }'
     +'.pt-clip{ width:'+sw+'px; height:'+sh+'px; overflow:hidden; margin:0 auto; }'
     +'.pt-scale{ transform-origin:top left; transform:scale('+scale.toFixed(4)+'); }'
-    +'.sig-wrap{ display:flex; gap:22px; justify-content:center; margin-top:30px; }'
-    +'.sig-col{ flex:1; max-width:250px; text-align:center; padding:14px 16px 16px; border:1px solid #e4e8f0; border-radius:12px; background:#f9fafc; }'
-    +'.sig-line{ border-top:1px dashed #b9c2d6; margin:30px 10px 0; }'
-    +'.sig-role{ font-size:12.5px; font-weight:700; color:#1B4BA8; margin-top:10px; letter-spacing:.2px; }'
-    +'.sig-sub{ font-size:11px; color:#6b7280; margin-top:10px; }'
+    +'.sig-wrap{ display:flex; gap:16px; justify-content:center; margin-top:18px; }'
+    +'.sig-col{ flex:1; max-width:220px; text-align:center; padding:8px 14px 10px; border:1px solid #e7ebf2; border-radius:9px; background:#fbfcfe; }'
+    +'.sig-line{ border-top:1px dashed #c4ccda; margin:16px 14px 0; }'
+    +'.sig-role{ font-size:11.5px; font-weight:700; color:#1B4BA8; margin-top:6px; letter-spacing:.2px; }'
+    +'.sig-sub{ font-size:10px; color:#7a828f; margin-top:7px; }'
     +'</style></head><body>'
     +'<div class="pt-head"><img class="pt-logo" src="'+logoUrl+'" alt=""><div class="pt-title">'+title+'</div></div>'
     +'<div class="pt-clip"><div class="pt-scale"><div id="page-orgchart"><div class="oc-scroll">'
