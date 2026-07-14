@@ -263,9 +263,10 @@ function ocRenderColumns(cv, root, MAXD, SC){
   const HEADY = PAD + BH + TOPGAP;        // แถวหัวคอลัมน์ (exec) ใต้กล่อง CEO
   const CHILDTOP = HEADY + BH + HGAP;     // แถวลูกน้อง ใต้กล่อง exec
   const items=[]; const posById=new Map(); const gridKids=new Set(); const execMeta=[];
+  const byGrade=a=>a.slice().sort((x,y)=>gRank(x.grade)-gRank(y.grade)||(x.title||'').localeCompare(y.title||''));  // เรียงตามระดับ (สูง→ต่ำ) แล้วชื่อ
   let colX=PAD;
   heads.forEach(head=>{
-    const kids = SC(head);
+    const kids = byGrade(SC(head));
     const flat = kids.length>0 && kids.every(k=>SC(k).length===0);
     let blockW=BW;
     if(flat && kids.length>CAP){                       // ลูกเป็น leaf และเยอะ → พับหลายคอลัมน์ย่อย
@@ -276,7 +277,7 @@ function ocRenderColumns(cv, root, MAXD, SC){
       execMeta.push({head, colX, cols, rowsPer, n:kids.length, grid:true});
     } else {                                            // เรียงลง + indent ตามชั้น (รองรับผังลึกของโหมดบริหาร)
       let row=0, maxD=0;
-      kids.forEach(k=>{ (function place(n,d){ const rec={n,x:colX+d*IND,y:CHILDTOP+row*ROW}; items.push(rec); posById.set(n.position_id,rec); if(d>maxD)maxD=d; row++; SC(n).forEach(c=>place(c,d+1)); })(k,0); });
+      kids.forEach(k=>{ (function place(n,d){ const rec={n,x:colX+d*IND,y:CHILDTOP+row*ROW}; items.push(rec); posById.set(n.position_id,rec); if(d>maxD)maxD=d; row++; byGrade(SC(n)).forEach(c=>place(c,d+1)); })(k,0); });
       blockW=Math.max(BW, maxD*IND+BW);
       execMeta.push({head, colX, grid:false});
     }
