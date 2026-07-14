@@ -455,7 +455,7 @@ function ocPrint(){
   if(!w){ alert(ocT('เบราว์เซอร์บล็อกป๊อปอัป กรุณาอนุญาต popup แล้วลองใหม่','Popup blocked — please allow popups and retry')); return; }
   w.document.open(); w.document.write(html); w.document.close();
   let done=false;
-  const go=()=>{ if(done)return; done=true; try{ w.focus(); w.print(); }catch(e){} setTimeout(()=>{ try{ w.close(); }catch(e){} }, 500); };
+  const go=()=>{ if(done)return; done=true; try{ w.focus(); w.onafterprint=()=>{ try{ w.close(); }catch(e){} }; w.print(); }catch(e){} };  // ปิดหลังพิมพ์เสร็จจริง (ไม่ปิดเร็วจน dialog หาย)
   w.onload=()=>setTimeout(go, 400);
   setTimeout(()=>{ if(!done && w && !w.closed) go(); }, 1200);  // เผื่อ onload ไม่ยิง
   }catch(err){ alert(ocT('พิมพ์ไม่สำเร็จ: ','Print failed: ')+((err&&err.message)||err)); }
