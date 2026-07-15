@@ -445,8 +445,9 @@ function ocPrint(){
   const scope=ocScope==='mgmt' ? ocT('ระดับบริหาร (CEO–M1)','Management (CEO–M1)') : ocScope==='heads' ? ocT('ผู้บริหาร + หัวหน้าแผนก','Executives + Dept Heads') : (deptFilter||(focus?focus.title:ocT('ทั้งองค์กร','Whole organization')));
   const title=(ocT('ผังองค์กร','Organization Chart')+' — '+scope+'  ('+new Date().toLocaleDateString(lang==='en'?'en-GB':'th-TH')+')').replace(/&/g,'&amp;').replace(/</g,'&lt;');
   let logoUrl=''; try{ const _lg=document.querySelector('.topbar img'); logoUrl=(_lg&&_lg.src)||new URL('logo.jpg', location.href).href; }catch(_e){ logoUrl=''; }
-  const sCol=(lb)=>'<div class="sig-col"><div class="sig-line"></div><div class="sig-role">'+lb+'</div><div class="sig-sub">(...............................)</div><div class="sig-sub">'+ocT('ตำแหน่ง','Position')+' ...................</div><div class="sig-sub">'+ocT('วันที่','Date')+' ...................</div></div>';
-  const signHtml=wantSign?'<div class="sig-wrap">'+sCol(ocT('ผู้จัดทำ','Prepared by'))+sCol(ocT('ผู้ตรวจสอบ','Reviewed by'))+sCol(ocT('ผู้อนุมัติ','Approved by'))+'</div>':'';
+  const esc=(s)=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const sCol=(lb,name,pos)=>'<div class="sig-col"><div class="sig-line"></div><div class="sig-role">'+lb+'</div><div class="sig-sub">('+esc(name)+')</div><div class="sig-sub">'+ocT('ตำแหน่ง','Position')+' '+esc(pos)+'</div><div class="sig-sub">'+ocT('วันที่','Date')+' ...................</div></div>';
+  const signHtml=wantSign?'<div class="sig-wrap">'+sCol(ocT('ผู้จัดทำ','Prepared by'),'Amnaj Srinak','HR Officer')+sCol(ocT('ผู้ตรวจสอบ','Reviewed by'),'Suphachoke Phanthumitr','Human Resources Manager')+sCol(ocT('ผู้อนุมัติ','Approved by'),'Robert Kennedy','General Manager Operations')+'</div>':'';
   const baseCss=(document.querySelector('style')||{}).textContent||'';
   const html='<!DOCTYPE html><html><head><meta charset="utf-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">'
