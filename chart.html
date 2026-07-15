@@ -291,7 +291,7 @@ function ocRenderColumns(cv, root, MAXD, SC){
   const W = Math.max(contentRight, rootX+BW) + PAD;
   const H = Math.max(...items.map(it=>it.y)) + BH + PAD;
   const boxes=items.map(it=>`<div class="oc-tnode" style="left:${it.x}px;top:${it.y}px;width:${BW}px">${chartBox(it.n)}</div>`).join('');
-  let paths=''; const S='stroke="#b9c2d6" stroke-width="1.5"', SL='stroke="#d3d9e4" stroke-width="1.2"';
+  let paths=''; const S='stroke="#9aa7c2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"';
   // CEO → หัวคอลัมน์ (exec) : bus แนวนอน
   if(heads.length){
     const rb=rootRec, busY=rb.y+BH+TOPGAP*0.5, rcx=rb.x+BW/2;
@@ -300,19 +300,30 @@ function ocRenderColumns(cv, root, MAXD, SC){
     paths+=`<path d="M${Math.min(...hxs)} ${busY} H${Math.max(...hxs)}" fill="none" ${S}/>`;
     heads.forEach(h=>{ const r=posById.get(h.position_id); paths+=`<path d="M${r.x+BW/2} ${busY} V${r.y}" fill="none" ${S}/>`; });
   }
-  // exec แบบ grid → bus เหนือกลุ่ม + สันแนวตั้งต่อคอลัมน์ย่อย
+  // exec แบบ grid → bus เหนือกลุ่ม + สไปน์ซ้ายต่อคอลัมน์ + ก้านสั้นเข้าแต่ละกล่อง (แยกให้ชัด ไม่ลากผ่านกล่อง)
   execMeta.filter(m=>m.grid).forEach(m=>{
     const hr=posById.get(m.head.position_id), busY=CHILDTOP-24, ecx=hr.x+BW/2;
-    const colC=c=>m.colX+c*(BW+SUBGAP)+BW/2;
+    const boxL=c=>m.colX+c*(BW+SUBGAP), spineX=c=>boxL(c)-9;
     paths+=`<path d="M${ecx} ${hr.y+BH} V${busY}" fill="none" ${S}/>`;
-    paths+=`<path d="M${colC(0)} ${busY} H${colC(m.cols-1)}" fill="none" ${S}/>`;
-    for(let c=0;c<m.cols;c++){ const cnt=Math.min(m.rowsPer, m.n-c*m.rowsPer); if(cnt<=0) continue; const bottom=CHILDTOP+(cnt-1)*ROW+BH; paths+=`<path d="M${colC(c)} ${busY} V${bottom}" fill="none" ${SL}/>`; }
+    paths+=`<path d="M${Math.min(ecx,spineX(0))} ${busY} H${Math.max(ecx,spineX(m.cols-1))}" fill="none" ${S}/>`;
+    for(let c=0;c<m.cols;c++){ const cnt=Math.min(m.rowsPer, m.n-c*m.rowsPer); if(cnt<=0) continue;
+      const lastY=CHILDTOP+(cnt-1)*ROW+BH/2;
+      paths+=`<path d="M${spineX(c)} ${busY} V${lastY}" fill="none" ${S}/>`;
+      for(let r=0;r<cnt;r++){ const y=CHILDTOP+r*ROW+BH/2; paths+=`<path d="M${spineX(c)} ${y} H${boxL(c)}" fill="none" ${S}/>`; }
+    }
   });
-  // exec แบบเรียงลง / โหนดลึก → spine ซ้าย + ขาแยกเข้าแต่ละกล่อง
-  items.forEach(rec=>{ const n=rec.n; if(n===root||gridKids.has(n.position_id)||heads.some(h=>h.position_id===n.position_id)) return;
-    const p=posById.get(n.reports_to_position_id); if(!p) return;
-    const spineX=p.x+18, startY=p.y+BH, cy=rec.y+BH/2, lx=rec.x;
-    paths+=`<path d="M${spineX} ${startY} V${cy} H${lx}" fill="none" ${S}/>`; });
+  // ลูกน้องเรียงลงแนวตั้ง → สไปน์ซ้ายต่อ "หัวหน้าแต่ละคน" + ก้านแยกเข้าแต่ละกล่อง
+  //   เห็นชัดว่าลูกน้องทุกคนห้อยจากหัวหน้าคนเดียวกัน (ไม่ใช่ต่อกันเป็นสายเดียวลงมา)
+  const headSet=new Set(heads.map(h=>h.position_id));
+  const kidsByParent=new Map();
+  items.forEach(rec=>{ const n=rec.n; if(n===root||gridKids.has(n.position_id)||headSet.has(n.position_id)) return;
+    const pid=n.reports_to_position_id; if(!posById.has(pid)) return;
+    if(!kidsByParent.has(pid)) kidsByParent.set(pid,[]); kidsByParent.get(pid).push(rec); });
+  kidsByParent.forEach((kids,pid)=>{ const p=posById.get(pid);
+    const spineX=Math.min(...kids.map(k=>k.x))-12, firstTop=Math.min(...kids.map(k=>k.y)), spineBottom=Math.max(...kids.map(k=>k.y+BH/2));
+    paths+=`<path d="M${p.x+BW/2} ${p.y+BH} V${firstTop-14} H${spineX} V${spineBottom}" fill="none" ${S}/>`;  // ก้านหลักหัวหน้า → หัวสไปน์ → ลงสไปน์
+    kids.forEach(k=>{ paths+=`<path d="M${spineX} ${k.y+BH/2} H${k.x}" fill="none" ${S}/>`; });                 // ก้านเข้าแต่ละกล่อง
+  });
   cv.innerHTML=`${ocZoombarHtml()}<div class="oc-scroll" id="oc-ocScroll"><div class="oc-zoom" id="oc-ocZoom" style="position:relative;width:${W}px;height:${H}px"><svg class="oc-svg" width="${W}" height="${H}">${paths}</svg>${boxes}</div></div>`;
   requestAnimationFrame(ocZoomFit);
 }
