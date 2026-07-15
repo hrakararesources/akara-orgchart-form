@@ -74,7 +74,7 @@
   #page-orgchart .ocb-head{display:flex;align-items:center;gap:9px;}
   #page-orgchart .oc-box .oc-av{width:30px;height:30px;flex:0 0 30px;font-size:11px;}
   #page-orgchart .ocb-info{min-width:0;flex:1;}
-  #page-orgchart .ocb-name{font-weight:700;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #page-orgchart .ocb-name{font-weight:700;font-size:12px;color:var(--text);line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:break-word;}
   #page-orgchart .ocb-name.vac{color:var(--red);font-weight:600;}
   #page-orgchart .ocb-title2{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   #page-orgchart .ocb-acting{font-size:11px;color:#b45309;margin-top:4px;line-height:1.25;font-weight:600;}
@@ -258,7 +258,7 @@ function ocZoombarHtml(){
 // → ลูกน้องของแต่ละคอลัมน์เรียงลงล่าง ถ้าลูกเยอะเกิน CAP จะพับเป็นหลายคอลัมน์ย่อยให้ความสูงบาลานซ์กัน
 function ocRenderColumns(cv, root, MAXD, SC){
   SC = SC || (n=>n.children);
-  const IND=30, BW=200, BH=124, ROW=BH+16, PAD=10, COLGAP=30, SUBGAP=22, TOPGAP=54, HGAP=46, CAP=6;
+  const IND=30, BW=200, BH=124, ROW=BH+16, PAD=24, COLGAP=30, SUBGAP=22, TOPGAP=54, HGAP=46, CAP=6;
   const heads = MAXD>=1 ? SC(root) : [];
   const HEADY = PAD + BH + TOPGAP;        // แถวหัวคอลัมน์ (exec) ใต้กล่อง CEO
   const CHILDTOP = HEADY + BH + HGAP;     // แถวลูกน้อง ใต้กล่อง exec
@@ -350,7 +350,7 @@ function renderChart(focus){
   const MAXD = (ocScope==='mgmt'||ocScope==='heads') ? 99 : chartDepth;   // บริหาร/หัวหน้าแผนก: แสดงทุกชั้น
   const SC = n => ocScope==='mgmt' ? n.children.filter(c=>OC_MGMT.has(c.grade)) : ocScope==='heads' ? ocHeadChildren(n) : n.children;
   if(ocScope==='mgmt'||ocScope==='heads') return ocRenderColumns(cv, root, MAXD, SC);  // ผสม หัวคอลัมน์แนวนอน + ลูกน้องเรียงลง
-  const BW=200,BH=132,SLOT=218,VGAP=54,PADT=12,PADL=10;
+  const BW=200,BH=132,SLOT=218,VGAP=54,PADT=12,PADL=16;
   const GCOLS=6,GMIN=7,GVGAP=14;   // ลูกน้อง leaf ≥ GMIN → พับเป็นตาราง GCOLS คอลัมน์ (ทำได้ทุก level แม้ลูกปนหัวหน้าย่อย)
   const nodes=[],depth=new Map(),gridC=new Map(),gridLeaves=new Map(),grow=new Map(),xs=new Map(),width=new Map();
   const kidsOf=(n,d)=> d<MAXD ? SC(n) : [];
