@@ -374,18 +374,28 @@ function renderChart(focus){
   const maxSlot=Math.max(...[...xs.values()]);
   const W=PADL+(maxSlot+1)*SLOT+PADL, H=rowY[maxD]+rowH[maxD]+PADT;
   const boxes=nodes.map(n=>`<div class="oc-tnode" style="left:${xpx(n)}px;top:${yOf(n)}px">${chartBox(n)}</div>`).join('');
-  // 5) เส้นเชื่อม
-  let paths='';
-  nodes.forEach(n=>{ if(n===root) return; const p=byId.get(n.reports_to_position_id); if(!p||!xs.has(p.position_id)) return;
-    if(grow.has(n.position_id)) return;   // leaf ในบล็อก grid วาดแยกด้านล่าง
-    const cx=xpx(n)+BW/2,ct=yOf(n),px=xpx(p)+BW/2,pb=yOf(p)+BH,bus=pb+VGAP/2;
-    paths+=`<path d="M${px} ${pb} V${bus} H${cx} V${ct}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`; });
+  // 5) เส้นเชื่อม — วาดเป็น "คร่อม" แยกต่อหัวหน้าแต่ละคน: ก้านหลักห้อยยาวจากหัวหน้าลงไปเกือบถึงลูก
+  //    แล้วค่อยแตกบัสคร่อมเฉพาะลูกของหัวหน้าคนนั้น → เห็นชัดว่าลูกน้องแต่ละคนอยู่ใต้ใคร ไม่ปนกันเป็นเส้นเดียว
+  let paths=''; const S='fill="none" stroke="#9aa7c2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"';
+  nodes.forEach(p=>{ const d=depth.get(p.position_id); const kids=kidsOf(p,d); if(!kids.length) return;
+    const normal=kids.filter(k=>!grow.has(k.position_id) && xs.has(k.position_id));  // ลูกที่วางแบบปกติ (ไม่ใช่บล็อกตาราง)
+    if(!normal.length) return;
+    const px=xpx(p)+BW/2, pb=yOf(p)+BH, ct=Math.min(...normal.map(k=>yOf(k))), busY=ct-22;
+    const cxs=normal.map(k=>xpx(k)+BW/2);
+    paths+=`<path d="M${px} ${pb} V${busY}" ${S}/>`;                                   // ก้านหลักจากหัวหน้า → บัส
+    if(cxs.length>1 || cxs[0]!==px) paths+=`<path d="M${Math.min(px,...cxs)} ${busY} H${Math.max(px,...cxs)}" ${S}/>`;  // บัสคร่อมเฉพาะลูกของหัวหน้าคนนี้
+    cxs.forEach((cx,i)=>{ paths+=`<path d="M${cx} ${busY} V${yOf(normal[i])}" ${S}/>`; });           // ก้านสั้นลงแต่ละกล่อง
+  });
+  // ลูกน้องแบบ leaf เยอะ (พับเป็นตาราง) → สไปน์ซ้ายต่อคอลัมน์ + ก้านสั้นเข้าแต่ละกล่อง (แยกให้ชัดว่าเป็นคนละคน)
   nodes.forEach(P=>{ const c=gridC.get(P.position_id); if(!c) return; const leaves=gridLeaves.get(P.position_id), cnt=leaves.length, d=depth.get(P.position_id), cd=d+1; if(cd>maxD) return;
-    const blockLeft=xs.get(leaves[0].position_id), blockTop=rowY[cd], busY=blockTop-18, Px=xpx(P)+BW/2, Pb=yOf(P)+BH;
-    const colX=cc=>PADL+(blockLeft+cc)*SLOT+BW/2, cols0=Math.min(c,cnt);
-    paths+=`<path d="M${Px} ${Pb} V${busY}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`;
-    paths+=`<path d="M${colX(0)} ${busY} H${colX(cols0-1)}" fill="none" stroke="#b9c2d6" stroke-width="1.5"/>`;
-    for(let cc=0;cc<cols0;cc++){ const lastRow=Math.floor((cnt-1-cc)/c), bottom=blockTop+lastRow*(BH+GVGAP)+BH; paths+=`<path d="M${colX(cc)} ${busY} V${bottom}" fill="none" stroke="#e0e5ee" stroke-width="1.2"/>`; }
+    const blockLeft=xs.get(leaves[0].position_id), blockTop=rowY[cd], busY=blockTop-22, Px=xpx(P)+BW/2, Pb=yOf(P)+BH;
+    const boxLeft=cc=>PADL+(blockLeft+cc)*SLOT, spineX=cc=>boxLeft(cc)-9, cols0=Math.min(c,cnt);
+    paths+=`<path d="M${Px} ${Pb} V${busY}" ${S}/>`;                                    // ก้านหลักหัวหน้า → บัส
+    paths+=`<path d="M${Math.min(Px,spineX(0))} ${busY} H${Math.max(Px,spineX(cols0-1))}" ${S}/>`;  // บัสคร่อมหัวสไปน์ทุกคอลัมน์
+    for(let cc=0;cc<cols0;cc++){ const lastRow=Math.floor((cnt-1-cc)/c), lastY=blockTop+lastRow*(BH+GVGAP)+BH/2;
+      paths+=`<path d="M${spineX(cc)} ${busY} V${lastY}" ${S}/>`;                        // สไปน์ซ้ายของคอลัมน์
+      for(let i=cc;i<cnt;i+=c){ const r=Math.floor(i/c), y=blockTop+r*(BH+GVGAP)+BH/2; paths+=`<path d="M${spineX(cc)} ${y} H${boxLeft(cc)}" ${S}/>`; }  // ก้านเข้าแต่ละกล่อง
+    }
   });
   cv.innerHTML=`${ocZoombarHtml()}<div class="oc-scroll" id="oc-ocScroll"><div class="oc-zoom" id="oc-ocZoom" style="position:relative;width:${W}px;height:${H}px"><svg class="oc-svg" width="${W}" height="${H}">${paths}</svg>${boxes}</div></div>`;
   requestAnimationFrame(ocZoomFit);
